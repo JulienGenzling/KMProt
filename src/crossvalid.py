@@ -19,7 +19,7 @@ class CrossValid:
             idx_ts = test_dataset['indices']
 
             K_tr = self.kernel[np.ix_(idx_tr, idx_tr)]
-            K_ts = self.kernel[np.ix_(idx_ts, idx_ts)]
+            K_ts = self.kernel[np.ix_(idx_tr, idx_ts)]
 
             self.fitter.fit(K_tr, train_dataset['labels'])
 

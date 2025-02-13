@@ -28,7 +28,7 @@ class Kernel:
 class SpectrumKernel:
     def __init__(self, dataset, **params):
         self.dataset = dataset
-        self.params = {"kmin": 7, "kmax": 20}
+        self.params = {"kmin": 1, "kmax": 20}
         self.params.update(params)
 
         self.K = None

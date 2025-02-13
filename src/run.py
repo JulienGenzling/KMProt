@@ -1,7 +1,7 @@
 import json
 import numpy as np
-from dataset import Dataset
-from crossvalid import CrossValid
+from src.dataset import Dataset
+from src.crossvalid import CrossValid
 from src.fitter import SVM
 from src.kernel import SpectrumKernel
 
