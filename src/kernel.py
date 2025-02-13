@@ -3,7 +3,8 @@ from collections import Counter
 from itertools import product
 from tqdm import tqdm
 import logging
-import multiprocessing as mp
+from multiprocessing import Pool, cpu_count
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -25,42 +26,102 @@ class Kernel:
         return self.gram_matrix[i, j]
 
 
-class SpectrumKernel:
+class MultiSpectrumKernel:
     def __init__(self, dataset, **params):
         self.dataset = dataset
-        self.params = {"kmin": 1, "kmax": 20}
+        self.n = len(self.dataset)
+        self.params = {"kmin": 7, "kmax": 20}
         self.params.update(params)
+        print(self.params)
 
         self.K = None
         self.compute_gram_matrix()
 
-    def get_phi_u(self, seq, k, betas):
-        return np.array(
-            [seq[i : i + k] == beta for beta in betas for i in range(len(seq) - k + 1)],
-            dtype=int,
-        )
+    @staticmethod
+    def dot(x, y):
+        x, y = (x, y) if len(x) < len(y) else (y, x)
+        res = 0
+        for key, val in x.items():
+            res += y.get(key, 0) * val
+        return res
 
+    def _compute_phi(self, x):
+        phi = {}
+        for k in range(self.params["kmin"], self.params["kmax"] + 1):
+            for offset in range(len(x) - k + 1):
+                xkmer = x[offset : offset + k]
+                phi[xkmer] = phi.get(xkmer, 0) + 1
+        return phi
+
+    def _compute_phis(self):
+        phis = []
+        for seq in tqdm(self.dataset.sequences, desc="Computing phis"):
+            phi = self._compute_phi(seq)
+            phis.append(phi)
+        return np.array(phis)
+    
     def compute_gram_matrix(self):
-        k = self.params["kmin"]
-        seq = self.dataset.sequences
-        n = len(seq)
-        K = np.zeros((n, n))
-        
-        betas = ["".join(c) for c in product("ACGT", repeat=k)]
+        K = np.zeros((self.n, self.n))
+        phis = self._compute_phis()
 
-        phi_u = [
-            self.get_phi_u(seq, k, betas)
-            for seq in tqdm(seq, desc="Computing feature vectors")
-        ]
-
-        # Build the kernel matrix
-        for i in tqdm(range(n), desc="Building kernel"):
-            for j in range(i, n):
-                K[i, j] = np.dot(phi_u[i], phi_u[j])
-                K[j, i] = K[i, j]
-
-        self.K = K 
+        for i in tqdm(range(self.n, ), desc="Gram matrix of spectral"):
+            for j in range(i, self.n):
+                K[i, j] = K[j, i] = self.dot(phis[i], phis[j])
+        self.K = K
         return self.K
+
+    # def compute_partial_gram_matrix(self, indices, phis):
+    #     partial_K = np.zeros((len(indices), len(indices)))
+    #     for i, idx_i in enumerate(indices):
+    #         for j, idx_j in enumerate(indices):
+    #             if idx_i <= idx_j:
+    #                 partial_K[i, j] = partial_K[j, i] = self.dot(
+    #                     phis[idx_i], phis[idx_j]
+    #                 )
+    #     return partial_K
+
+    # def compute_gram_matrix(self):
+    #     phis = self._compute_phis()
+    #     K = np.zeros((self.n, self.n))
+
+    #     num_processes = min(cpu_count(), 8)
+    #     chunk_size = self.n // num_processes
+    #     chunks = [
+    #         list(range(i * chunk_size, (i + 1) * chunk_size))
+    #         for i in range(num_processes)
+    #     ]
+    #     chunks[-1] = list(range(chunks[-1][0], self.n))
+
+    #     with Pool(num_processes) as pool:
+    #         results = list(
+    #             tqdm(
+    #                 pool.starmap(
+    #                     self.compute_partial_gram_matrix,
+    #                     [(chunk, phis) for chunk in chunks],
+    #                 ),
+    #                 total=num_processes,
+    #                 desc="Computing gram matrix",
+    #             )
+    #         )
+
+    #     for i, chunk in enumerate(chunks):
+    #         for j, idx in enumerate(chunk):
+    #             K[idx, chunk] = results[i][j]
+    #             K[chunk, idx] = results[i][:, j]
+
+        # self.K = self.normalize(K)
+        # return self.K
+
+    @staticmethod
+    def normalize(K):
+        for i in range(K.shape[0]):
+            for j in range(i + 1, K.shape[0]):
+                q = np.sqrt(K[i, i] * K[j, j])
+                if q > 0:
+                    K[i, j] /= q
+                    K[j, i] = K[i, j]
+        np.fill_diagonal(K, 1.0)
+        return K
 
     def __getitem__(self, index):
         if self.K is None:
@@ -75,7 +136,9 @@ if __name__ == "__main__":
     # Example usage
     dataset = Dataset(0)
     # dataset = [["ATCT", "ATTT", "CGTA", "CTCT"], [0, 1, 1, 1]]
-    kernel = SpectrumKernel(dataset, kmin=2, kmax=3)
+
+    kernel = MultiSpectrumKernel(dataset, kmin=7, kmax=20)
 
     # Accessing the Gram matrix values
+    print(kernel.K.shape)
     print(kernel.K)  # Full Gram matrix

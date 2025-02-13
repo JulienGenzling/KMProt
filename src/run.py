@@ -3,7 +3,7 @@ import numpy as np
 from src.dataset import Dataset
 from src.crossvalid import CrossValid
 from src.fitter import SVM
-from src.kernel import SpectrumKernel
+from src.kernel import MultiSpectrumKernel
 
 
 def load_config(file_path):
@@ -21,7 +21,7 @@ def main():
         fitter_params = config[datafold]["fitter_params"]
 
         if kernel_params["name"] == "spectrum":
-            kernel = SpectrumKernel(
+            kernel = MultiSpectrumKernel(
                 dataset, **kernel_params
             )
         else:

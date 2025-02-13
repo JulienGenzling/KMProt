@@ -20,8 +20,9 @@ class CrossValid:
 
             K_tr = self.kernel[np.ix_(idx_tr, idx_tr)]
             K_ts = self.kernel[np.ix_(idx_tr, idx_ts)]
+            K_tr_norm = self.kernel.normalize(K_tr)
 
-            self.fitter.fit(K_tr, train_dataset['labels'])
+            self.fitter.fit(K_tr_norm, train_dataset['labels'])
 
             predictions = self.fitter.predict(K_ts)
             accuracy = np.mean(predictions == test_dataset['labels'])
@@ -37,14 +38,14 @@ class CrossValid:
 
 if __name__ == "__main__":
     from src.dataset import Dataset 
-    from src.kernel import SpectrumKernel
+    from src.kernel import MultiSpectrumKernel
     from src.fitter import SVM
 
     dataset = Dataset(k=0)
     # dataset.sequences = np.array(["ATCT", "ATTT", "CGTA", "CTCT", "CTTC"])
     # dataset.labels = np.array([0, 1, 1, 1, 0])
-    kernel = SpectrumKernel(dataset)
-    fitter = SVM(C=1)
+    kernel = MultiSpectrumKernel(dataset)
+    fitter = SVM(C=5)
     cross_valid = CrossValid(fitter, dataset, kernel, k=5)
     results = cross_valid.fit()
     print("Cross-validation results:", results)

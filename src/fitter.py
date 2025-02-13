@@ -68,12 +68,11 @@ class SVM(Fitter):
         (among which we find the support vectors) and n
         are the test samples.
         """
-        print(self.alpha.shape)
-        print(self.sv_indices.shape)
-        print(self.sv_label.shape)
-        print(K.shape)
-        y_pred = (
-            self.alpha * self.sv_label.T @ K[self.sv_indices, :] + self.intercept
-        )
+        N, n = K.shape 
+        y_pred = np.zeros(n)
+        for i in range(n):
+            res = 
+            y_pred[i] = res
+
 
         return np.sign(y_pred)
