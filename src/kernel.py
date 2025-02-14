@@ -3,7 +3,9 @@ from collections import Counter
 from itertools import product
 from tqdm import tqdm
 import logging
+import pickle
 from multiprocessing import Pool, cpu_count
+import os
 
 
 logging.basicConfig(
@@ -59,15 +61,30 @@ class MultiSpectrumKernel:
             phi = self._compute_phi(seq)
             phis.append(phi)
         return np.array(phis)
-    
-    def compute_gram_matrix(self):
-        K = np.zeros((self.n, self.n))
-        phis = self._compute_phis()
 
-        for i in tqdm(range(self.n, ), desc="Gram matrix of spectral"):
-            for j in range(i, self.n):
-                K[i, j] = K[j, i] = self.dot(phis[i], phis[j])
-        self.K = K
+    def compute_gram_matrix(self):
+        self.phis = self._compute_phis()
+
+        filename = f"multispectrumkernel_{self.params['kmin']}_{self.params['kmax']}.pkl"
+
+        # Check if the file exists
+        if os.path.exists(filename):
+            print(f"Loading Gram matrix from file: {filename}")
+            with open(filename, 'rb') as file:
+                self.K = pickle.load(file)
+        else:
+            print(f"Computing Gram matrix and saving to file: {filename}")
+            K = np.zeros((self.n, self.n))
+            for i in tqdm(range(self.n), desc="Gram matrix of spectral"):
+                for j in range(i, self.n):
+                    K[i, j] = K[j, i] = self.dot(self.phis[i], self.phis[j])
+
+            self.K = self.normalize(K)
+
+            # Save the computed Gram matrix to a file
+            with open(filename, 'wb') as file:
+                pickle.dump(self.K, file)
+
         return self.K
 
     # def compute_partial_gram_matrix(self, indices, phis):
@@ -109,8 +126,8 @@ class MultiSpectrumKernel:
     #             K[idx, chunk] = results[i][j]
     #             K[chunk, idx] = results[i][:, j]
 
-        # self.K = self.normalize(K)
-        # return self.K
+    # self.K = self.normalize(K)
+    # return self.K
 
     @staticmethod
     def normalize(K):
@@ -122,6 +139,11 @@ class MultiSpectrumKernel:
                     K[j, i] = K[i, j]
         np.fill_diagonal(K, 1.0)
         return K
+
+    @classmethod
+    def get_norms(cls, idx, phis):
+        norms = np.array([np.sqrt(cls.dot(phis[i], phis[i])) for i in idx])
+        return norms
 
     def __getitem__(self, index):
         if self.K is None:

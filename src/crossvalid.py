@@ -21,10 +21,12 @@ class CrossValid:
             K_tr = self.kernel[np.ix_(idx_tr, idx_tr)]
             K_ts = self.kernel[np.ix_(idx_tr, idx_ts)]
             K_tr_norm = self.kernel.normalize(K_tr)
+            norms_tr = self.kernel.get_norms(idx_tr, self.kernel.phis)
+            norms_ts = self.kernel.get_norms(idx_ts, self.kernel.phis)
 
             self.fitter.fit(K_tr_norm, train_dataset['labels'])
 
-            predictions = self.fitter.predict(K_ts)
+            predictions = self.fitter.predict(K_ts, norms_tr, norms_ts)
             accuracy = np.mean(predictions == test_dataset['labels'])
 
             results.append({

@@ -61,18 +61,53 @@ class SVM(Fitter):
         self.sv_indices = sv_indices
 
         return
+    # def fit(self, K, y):
+    #     print("3OHIOHEIDUDBEIDUBIZEUBCUEIBCIEZUCBIEUZBCIUEZBCUI")
+    #     print(K)
+    #     n = K.shape[0]
+    #     C = self.params["C"]
+    #     tol = self.params["tol"]
 
-    def predict(self, K):
+    #     G_top = np.diag(np.ones(n) * (-1))
+    #     h_left = np.zeros(n)
+    #     G_bot = np.eye(n)
+    #     h_right = np.ones(n) * C
+    #     G = cvxopt.matrix(np.vstack([G_top, G_bot]), (2 * n, n), 'd')
+    #     h = cvxopt.matrix(np.hstack([h_left, h_right]), (2 * n, 1), 'd')
+    #     P = cvxopt.matrix(np.dot(np.diag(y), np.dot(K, np.diag(y))), (n, n), 'd')
+    #     q = cvxopt.matrix(np.ones(n) * (-1), (n, 1), 'd')
+
+    #     A = cvxopt.matrix(y, (1, n), "d")
+
+    #     b = cvxopt.matrix(0.0)
+    #     alpha = y * np.array(cvxopt.solvers.qp(P, q, G, h, A=A, b=b)["x"]).reshape(-1)
+
+    #     support_vectors = np.where(np.abs(alpha) > tol)[0]
+    #     intercept = 0
+    #     for sv in support_vectors:
+    #         intercept += y[sv]
+    #         intercept -= np.sum(
+    #             alpha[support_vectors] * K[sv, support_vectors])
+    #     if len(support_vectors) > 0:
+    #         intercept /= len(support_vectors)
+
+    #     # set to zero non support vectors
+    #     alpha[np.where(np.abs(alpha) <= tol)[0]] = 0
+        
+    #     self.intercept = intercept
+    #     self.sv_indices = support_vectors
+    #     self.alpha = alpha[support_vectors]
+    #     self.sv_label = y[support_vectors]
+    #     return
+
+    def predict(self, K, norms_tr, norms_ts):
         """
         K has shape (N, n) where N are the train samples
         (among which we find the support vectors) and n
         are the test samples.
         """
-        N, n = K.shape 
-        y_pred = np.zeros(n)
-        for i in range(n):
-            res = 
-            y_pred[i] = res
-
-
+        K_norm = K / np.outer(norms_tr, norms_ts)
+        print(K_norm)
+        K_norm_sv = K_norm[self.sv_indices, :]
+        y_pred = np.dot(K_norm_sv.T, self.alpha * self.sv_label) + self.intercept
         return np.sign(y_pred)
