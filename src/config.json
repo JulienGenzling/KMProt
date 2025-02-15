@@ -2,36 +2,36 @@
     "0": {
         "kernel_params": {
             "name": "spectrum",
-            "kmin": 7,
-            "kmax": 20
+            "kmin": 5,
+            "kmax": 6
         },
         "fitter_params": {
             "name": "svm",
-            "C": 5,
+            "C": 4,
             "tol": 1e-4
         }
     },
     "1": {
         "kernel_params": {
             "name": "spectrum",
-            "kmin": 7,
-            "kmax": 20
+            "kmin": 5,
+            "kmax": 6
         },
         "fitter_params": {
             "name": "svm",
-            "C": 5,
+            "C": 4,
             "tol": 1e-4
         }
     },
     "2": {
         "kernel_params": {
             "name": "spectrum",
-            "kmin": 7,
-            "kmax": 20
+            "kmin": 5,
+            "kmax": 6
         },
         "fitter_params": {
             "name": "svm",
-            "C": 5,
+            "C": 4,
             "tol": 1e-4
         }
     }

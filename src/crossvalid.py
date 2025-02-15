@@ -26,16 +26,21 @@ class CrossValid:
             norms_tr = self.kernel.get_norms(idx_tr, self.kernel.phis)
             norms_ts = self.kernel.get_norms(idx_ts, self.kernel.phis)
 
-            self.fitter.fit(K_tr_norm, train_dataset["labels"]) # -> creates alpha and intercept
+            self.fitter.fit(
+                K_tr_norm, train_dataset["labels"]
+            )  # -> creates alpha and intercept
 
             predictions = self.fitter.predict(K_ts, norms_tr, norms_ts)
-            
+
             accuracy = np.mean(predictions == test_dataset["labels"])
 
             results.append({"fold": fold_idx + 1, "accuracy": accuracy})
             print(f"Fold {fold_idx + 1}/{self.k} - Accuracy: {accuracy:.4f}")
 
-        return results
+        cv_acc = np.mean([result["accuracy"] for result in results])
+        print("Overall accuracy : ", cv_acc)
+
+        return results, cv_acc
 
 
 if __name__ == "__main__":

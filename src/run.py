@@ -13,10 +13,12 @@ def load_config(file_path):
 
 
 def main():
-    
+
     np.random.seed(42)
 
     config = load_config("src/config.json")
+    overall_acc = []
+
     for datafold in config:
         dataset = Dataset(int(datafold))
 
@@ -24,9 +26,7 @@ def main():
         fitter_params = config[datafold]["fitter_params"]
 
         if kernel_params["name"] == "spectrum":
-            kernel = MultiSpectrumKernel(
-                dataset, **kernel_params
-            )
+            kernel = MultiSpectrumKernel(dataset, **kernel_params)
         else:
             print("Kernel not implemented")
         if fitter_params["name"] == "svm":
@@ -35,9 +35,10 @@ def main():
             print("Fitter not implemented")
 
         cross_valid = CrossValid(fitter, dataset, kernel, k=5)
-        results = cross_valid.fit()
+        results, cv_acc = cross_valid.fit()
+        overall_acc.append(cv_acc)
 
-        print(f"Results for datafold {datafold}: {results}")
+    print("Overall accuracy : ", np.mean(overall_acc))
 
 
 if __name__ == "__main__":
