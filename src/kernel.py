@@ -79,66 +79,24 @@ class MultiSpectrumKernel:
                 for j in range(i, self.n):
                     K[i, j] = K[j, i] = self.dot(self.phis[i], self.phis[j])
 
-            self.K = self.normalize(K)
-
+            self.K = K
             # Save the computed Gram matrix to a file
             with open(filename, 'wb') as file:
                 pickle.dump(self.K, file)
 
         return self.K
 
-    # def compute_partial_gram_matrix(self, indices, phis):
-    #     partial_K = np.zeros((len(indices), len(indices)))
-    #     for i, idx_i in enumerate(indices):
-    #         for j, idx_j in enumerate(indices):
-    #             if idx_i <= idx_j:
-    #                 partial_K[i, j] = partial_K[j, i] = self.dot(
-    #                     phis[idx_i], phis[idx_j]
-    #                 )
-    #     return partial_K
-
-    # def compute_gram_matrix(self):
-    #     phis = self._compute_phis()
-    #     K = np.zeros((self.n, self.n))
-
-    #     num_processes = min(cpu_count(), 8)
-    #     chunk_size = self.n // num_processes
-    #     chunks = [
-    #         list(range(i * chunk_size, (i + 1) * chunk_size))
-    #         for i in range(num_processes)
-    #     ]
-    #     chunks[-1] = list(range(chunks[-1][0], self.n))
-
-    #     with Pool(num_processes) as pool:
-    #         results = list(
-    #             tqdm(
-    #                 pool.starmap(
-    #                     self.compute_partial_gram_matrix,
-    #                     [(chunk, phis) for chunk in chunks],
-    #                 ),
-    #                 total=num_processes,
-    #                 desc="Computing gram matrix",
-    #             )
-    #         )
-
-    #     for i, chunk in enumerate(chunks):
-    #         for j, idx in enumerate(chunk):
-    #             K[idx, chunk] = results[i][j]
-    #             K[chunk, idx] = results[i][:, j]
-
-    # self.K = self.normalize(K)
-    # return self.K
-
     @staticmethod
     def normalize(K):
-        for i in range(K.shape[0]):
-            for j in range(i + 1, K.shape[0]):
-                q = np.sqrt(K[i, i] * K[j, j])
+        K_norm = K.copy()
+        for i in range(K_norm.shape[0]):
+            for j in range(i + 1, K_norm.shape[0]):
+                q = np.sqrt(K_norm[i, i] * K_norm[j, j])
                 if q > 0:
-                    K[i, j] /= q
-                    K[j, i] = K[i, j]
-        np.fill_diagonal(K, 1.0)
-        return K
+                    K_norm[i, j] /= q
+                    K_norm[j, i] = K_norm[i, j]
+        np.fill_diagonal(K_norm, 1.0)
+        return K_norm
 
     @classmethod
     def get_norms(cls, idx, phis):
