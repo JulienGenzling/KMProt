@@ -13,6 +13,9 @@ def load_config(file_path):
 
 
 def main():
+    
+    np.random.seed(42)
+
     config = load_config("src/config.json")
     for datafold in config:
         dataset = Dataset(int(datafold))
