@@ -43,7 +43,7 @@ if __name__ == "__main__":
     from src.kernel import MultiSpectrumKernel
     from src.fitter import SVM
 
-    dataset = Dataset(k=1)
+    dataset = Dataset(k=0)
     # dataset.sequences = np.array(["ATCT", "ATTT", "CGTA", "CTCT", "CTTC"])
     # dataset.labels = np.array([0, 1, 1, 1, 0])
     kernel = MultiSpectrumKernel(dataset)

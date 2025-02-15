@@ -40,37 +40,40 @@ class MultiSpectrumKernel:
         self.compute_gram_matrix()
 
     @staticmethod
-    def dot(x, y):
-        x, y = (x, y) if len(x) < len(y) else (y, x)
-        res = 0
-        for key, val in x.items():
-            res += y.get(key, 0) * val
-        return res
+    def dot(phi1, phi2):
+        if len(phi1) > len(phi2):
+            phi1, phi2 = phi2, phi1
+        dotprod = 0
+        for subset, count in phi1.items():
+            dotprod += phi2.get(subset, 0) * count
+        return dotprod
 
-    def _compute_phi(self, x):
+    def _get_phi(self, seq):
         phi = {}
         for k in range(self.params["kmin"], self.params["kmax"] + 1):
-            for offset in range(len(x) - k + 1):
-                xkmer = x[offset : offset + k]
+            for start_index in range(len(seq) - k + 1):
+                xkmer = seq[start_index : start_index + k]
                 phi[xkmer] = phi.get(xkmer, 0) + 1
         return phi
 
-    def _compute_phis(self):
+    def _get_phis(self):
         phis = []
-        for seq in tqdm(self.dataset.sequences, desc="Computing phis"):
-            phi = self._compute_phi(seq)
+        for seq in tqdm(self.dataset.sequences, desc="Computing phis..."):
+            phi = self._get_phi(seq)
             phis.append(phi)
         return np.array(phis)
 
     def compute_gram_matrix(self):
-        self.phis = self._compute_phis()
+        self.phis = self._get_phis()
 
-        filename = f"multispectrumkernel_{self.params['kmin']}_{self.params['kmax']}.pkl"
+        filename = (
+            f"multispectrumkernel_{self.dataset.k}_{self.params['kmin']}_{self.params['kmax']}.pkl"
+        )
 
         # Check if the file exists
         if os.path.exists(filename):
             print(f"Loading Gram matrix from file: {filename}")
-            with open(filename, 'rb') as file:
+            with open(filename, "rb") as file:
                 self.K = pickle.load(file)
         else:
             print(f"Computing Gram matrix and saving to file: {filename}")
@@ -81,7 +84,7 @@ class MultiSpectrumKernel:
 
             self.K = K
             # Save the computed Gram matrix to a file
-            with open(filename, 'wb') as file:
+            with open(filename, "wb") as file:
                 pickle.dump(self.K, file)
 
         return self.K
@@ -89,12 +92,13 @@ class MultiSpectrumKernel:
     @staticmethod
     def normalize(K):
         K_norm = K.copy()
-        for i in range(K_norm.shape[0]):
-            for j in range(i + 1, K_norm.shape[0]):
-                q = np.sqrt(K_norm[i, i] * K_norm[j, j])
-                if q > 0:
-                    K_norm[i, j] /= q
-                    K_norm[j, i] = K_norm[i, j]
+        diag = np.sqrt(np.diag(K_norm))
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            outer_diag = np.outer(diag, diag)
+            K_norm /= outer_diag
+            K_norm[outer_diag == 0] = 0
+
         np.fill_diagonal(K_norm, 1.0)
         return K_norm
 

@@ -69,7 +69,6 @@ class SVM(Fitter):
         (among which we find the support vectors) and n
         are the test samples.
         """
-        print(np.sum(K[:,10]))
         K_norm = K / np.outer(norms_tr, norms_ts)
         y_pred = (
             np.dot(K_norm[self.sv_indices, :].T, self.alpha * self.sv_label)
