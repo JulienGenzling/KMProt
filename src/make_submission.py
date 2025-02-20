@@ -37,6 +37,7 @@ def main():
 
         K = kernel[:, :]
         K_norm = kernel.normalize(K)
+        print(K_norm)
         fitter.fit(K_norm, dataset.labels)
 
         data = pd.read_csv(f"data/Xte{datafold}.csv")

@@ -49,6 +49,7 @@ class SVM(Fitter):
         sol = cvxopt.solvers.qp(P, q, G, h, A, b)
 
         alpha = np.array(sol["x"]).reshape(-1)
+        print("ALPHA SUM : ", np.sum(alpha))
         sv_indices = np.where(np.abs(alpha) > tol)[0]
         self.alpha = alpha[sv_indices]
         self.sv_label = y[sv_indices]
