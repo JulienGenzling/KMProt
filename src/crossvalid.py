@@ -1,7 +1,8 @@
+import os
+import json
 import numpy as np
 from src.dataset import KFold
-from tqdm import tqdm
-
+from src.utils import write_results
 
 class CrossValid:
     def __init__(self, fitter, dataset, kernel, k=5):
@@ -39,6 +40,10 @@ class CrossValid:
 
         cv_acc = np.mean([result["accuracy"] for result in results])
         print("Overall accuracy : ", cv_acc)
+
+        write_results(
+            self.dataset, self.fitter, self.kernel, cv_acc, "experiments.json"
+        )
 
         return results, cv_acc
 
