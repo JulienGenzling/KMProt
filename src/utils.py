@@ -28,11 +28,11 @@ def write_results(dataset, fitter, kernel, acc, output_file):
     with open(output_file, "w") as f:
         json.dump(experiments, f, indent=4)
 
-def get_obj(kernel_params, fitter_params):
+def get_obj(dataset, kernel_params, fitter_params, verbose):
     if kernel_params["name"] == "spectrum":
-        kernel = MultiSpectrumKernel(dataset, **kernel_params)
+        kernel = MultiSpectrumKernel(dataset, **kernel_params, verbose=verbose)
     if kernel_params["name"] == "mismatch":
-        kernel = MismatchKernel(dataset, **kernel_params)
+        kernel = MismatchKernel(dataset, **kernel_params, verbose=verbose)
     else:
         NotImplementedError("Kernel not implemented")
     if fitter_params["name"] == "svm":
@@ -43,3 +43,4 @@ def get_obj(kernel_params, fitter_params):
         fitter = KRR(**fitter_params)
     else:
         NotImplementedError("Fitter not implemented")
+    return kernel, fitter

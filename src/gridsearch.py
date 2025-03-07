@@ -1,12 +1,8 @@
-import numpy as np
-import pandas as pd
 import itertools
-import os
-import json
-from datetime import datetime
+import time
 from tqdm import tqdm
-import concurrent.futures
-import threading
+import multiprocessing
+from multiprocessing import Pool, Manager
 
 from src.dataset import Dataset
 from src.crossvalid import CrossValid
@@ -19,33 +15,82 @@ class HyperGridSearch:
         self.kernel_param_grid = kernel_param_grid
         self.fitter_param_grid = fitter_param_grid
 
-    def _generate_param_grid(self, param_grid: dict) -> list:
-        keys = param_grid.keys()
-        values = param_grid.values()
-        combinations = list(itertools.product(*values))
-        return [dict(zip(keys, combo)) for combo in combinations]
+    def _generate_kernel_combinations(self):
+        all_kernel_combinations = []
+        
+        if "spectrum" in self.kernel_param_grid["name"]:
+            kmin_values = self.kernel_param_grid["kmin"]
+            kmax_values = self.kernel_param_grid["kmax"]
+            
+            for kmin in kmin_values:
+                for kmax in [k for k in kmax_values if k >= kmin]:
+                    all_kernel_combinations.append({
+                        "name": "spectrum",
+                        "kmin": kmin,
+                        "kmax": kmax
+                    })
+        
+        if "mismatch" in self.kernel_param_grid["name"]:
+            k_values = self.kernel_param_grid["k"]
+            m_values = self.kernel_param_grid["m"]
+            
+            for k in k_values:
+                for m in [m_val for m_val in m_values if m_val <= k]:
+                    all_kernel_combinations.append({
+                        "name": "mismatch",
+                        "k": k,
+                        "m": m
+                    })
+        
+        return all_kernel_combinations
 
-    def _process_parameter_combination(self, combo, cv_k):
-        dataset_idx, kernel_params_orig, fitter_params_orig = combo
+    def _generate_fitter_combinations(self):
+        all_fitter_combinations = []
+        
+        for fitter_name in self.fitter_param_grid["name"]:
+            fitter_params = {"name": fitter_name}
+            
+            param_keys = [key for key in self.fitter_param_grid.keys() if key != "name"]
+            
+            param_values = [self.fitter_param_grid[key] for key in param_keys]
+            for combo in itertools.product(*param_values):
+                combo_dict = dict(zip(param_keys, combo))
+                all_fitter_combinations.append({**fitter_params, **combo_dict})
+        
+        return all_fitter_combinations
+
+    @staticmethod
+    def _process_parameter_combination(args):
+        dataset_idx, kernel_params_orig, fitter_params_orig, cv_k = args
 
         kernel_params = kernel_params_orig.copy()
         fitter_params = fitter_params_orig.copy()
 
         dataset = Dataset(dataset_idx)
-        kernel, fitter = get_obj(kernel_params, fitter_params)
-        cross_valid = CrossValid(fitter, dataset, kernel, k=cv_k)
+        kernel, fitter = get_obj(dataset, kernel_params, fitter_params, verbose=False)
+        cross_valid = CrossValid(fitter, dataset, kernel, k=cv_k, verbose=False)
 
         _, _ = cross_valid.fit()  # will write results to experiments.json
 
     def run_search(
         self,
         cv_k: int = 5,
-        max_workers: int = 10,
+        max_workers: int = None,
         verbose: bool = True,
-    ) -> pd.DataFrame:
+    ):
 
-        kernel_params_list = self._generate_param_grid(self.kernel_param_grid)
-        fitter_params_list = self._generate_param_grid(self.fitter_param_grid)
+        if max_workers is None:
+            max_workers = multiprocessing.cpu_count()
+        else:
+            max_workers = min(max_workers, multiprocessing.cpu_count())
+            
+        print(f"Using {max_workers} processes")
+        
+        kernel_params_list = self._generate_kernel_combinations()
+        fitter_params_list = self._generate_fitter_combinations()
+        
+        print(f"Generated {len(kernel_params_list)} kernel configurations")
+        print(f"Generated {len(fitter_params_list)} fitter configurations")
 
         all_combinations = []
         for dataset_idx in self.datasets:
@@ -54,50 +99,34 @@ class HyperGridSearch:
                     all_combinations.append(
                         (dataset_idx, kernel_params.copy(), fitter_params.copy())
                     )
-
-        total_combinations = len(all_combinations)
-
-        if verbose:
-            print(
-                f"Running parallel grid search with {total_combinations} total combinations"
-            )
-            print(f"Datasets: {self.datasets}")
-            print(f"Kernel parameters: {len(kernel_params_list)} combinations")
-            print(f"Fitter parameters: {len(fitter_params_list)} combinations")
-            print(f"Using up to {max_workers} threads for parallel processing")
-
-        results_lock = threading.Lock()
-
-        if verbose:
-            pbar = tqdm(total=total_combinations, desc="Processing combinations")
-            pbar_lock = threading.Lock()
-
-            def update_progress(future):
-                with pbar_lock:
-                    pbar.update(1)
-
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=min(max_workers, 10)
-        ) as executor:
-            futures = []
-            for combo in all_combinations:
-                future = executor.submit(
-                    self._process_parameter_combination,
-                    combo,
-                    cv_k,
-                    verbose,
-                    results_lock,
-                )
+        
+        task_args = []
+        for dataset_idx, kernel_params, fitter_params in all_combinations:
+            task_args.append((dataset_idx, kernel_params, fitter_params, cv_k))
+        
+        total_combinations = len(task_args)
+        print(f"Total combinations to evaluate: {total_combinations}")
+        
+        start_time = time.time()
+        
+        multiprocessing.set_start_method('spawn', force=True)
+        
+        with Pool(processes=max_workers) as pool:
+            if verbose:
+                pbar = tqdm(total=total_combinations, desc="Processing combinations")
+            
+            for _ in pool.imap_unordered(
+                self._process_parameter_combination, 
+                task_args
+            ):
                 if verbose:
-                    future.add_done_callback(update_progress)
-                futures.append(future)
-
-            concurrent.futures.wait(futures)
-
+                    pbar.update(1)
+            
             if verbose:
                 pbar.close()
-
-        return pd.DataFrame(self.results)
+        
+        end_time = time.time()
+        print(f"Total execution time: {end_time - start_time:.2f} seconds")
 
     @classmethod
     def find_best_params(cls):
@@ -108,21 +137,21 @@ class HyperGridSearch:
 if __name__ == "__main__":
     datasets = [0, 1, 2]
     kernel_param_grid = {
-        "type": ["spectrum", "mismatch"],
-        "kmin": range(5, 20),
-        "kmax": range(5, 20),
-        "k": range(5, 20),
-        "m": range(1, 3),
+        "name": ["spectrum", "mismatch"],
+        "kmin": range(5, 21),
+        "kmax": range(5, 21),
+        "k": range(5, 21),
+        "m": range(1, 4),
     }
     fitter_param_grid = {
-        "type": ["svm"],
-        "C": range(1, 5),
+        "name": ["svm"],
+        "C": [1],
         "tol": [1e-4],
     }
 
     search = HyperGridSearch(datasets, kernel_param_grid, fitter_param_grid)
 
-    results = search.run_search(
+    search.run_search(
         cv_k=5,
         max_workers=10,
     )

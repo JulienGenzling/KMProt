@@ -8,10 +8,11 @@ import pandas as pd
 
 
 class Kernel:
-    def __init__(self):
+    def __init__(self, verbose=True):
         self.K = None
+        self.verbose = verbose
 
-    def compute_gram_matrix(self):
+    def compute_gram_matrix(self, verbose=True):
         raise NotImplementedError("This method should be overridden by subclasses")
 
     def __getitem__(self, index):
@@ -35,8 +36,8 @@ class Kernel:
 
 
 class WeightedSumKernel(Kernel):
-    def __init__(self, dataset, kernel_params_list):
-        super().__init__()
+    def __init__(self, dataset, verbose=True, **kernel_params_list):
+        super().__init__(verbose=verbose)
         self.dataset = dataset
         self.n = len(self.dataset)
         self.kernel_params_list = kernel_params_list
@@ -69,8 +70,8 @@ class WeightedSumKernel(Kernel):
 
 class KmersKernels(Kernel):
 
-    def __init__(self, dataset, **params):
-        super().__init__()
+    def __init__(self, dataset, verbose=True, **params):
+        super().__init__(verbose=verbose)
         self.dataset = dataset
         self.n = len(self.dataset)
         self.params = {}  # Default params to be overridden by subclasses
@@ -93,7 +94,7 @@ class KmersKernels(Kernel):
 
     def _get_phis(self):
         phis = []
-        for seq in tqdm(self.dataset.sequences, desc="Computing phis..."):
+        for seq in tqdm(self.dataset.sequences, desc="Computing phis...", disable=not self.verbose):
             phi = self._get_phi(seq)
             phis.append(phi)
         return np.array(phis)
@@ -105,13 +106,15 @@ class KmersKernels(Kernel):
 
         # Check if the file exists
         if os.path.exists(filename):
-            print(f"Loading Gram matrix from file: {filename}")
+            if self.verbose:
+                print(f"Loading Gram matrix from file: {filename}")
             with open(filename, "rb") as file:
                 self.K = pickle.load(file)
         else:
-            print(f"Computing Gram matrix and saving to file: {filename}")
+            if self.verbose:
+                print(f"Computing Gram matrix and saving to file: {filename}")
             K = np.zeros((self.n, self.n))
-            for i in tqdm(range(self.n), desc="Gram matrix of spectral"):
+            for i in tqdm(range(self.n), desc="Gram matrix of spectral", disable=not self.verbose):
                 for j in range(i, self.n):
                     K[i, j] = K[j, i] = self.dot(self.phis[i], self.phis[j])
 
@@ -134,7 +137,7 @@ class KmersKernels(Kernel):
 class MultiSpectrumKernel(KmersKernels):
     """Kernel that counts exact matches of varying-length k-mers."""
 
-    def __init__(self, dataset, **params):
+    def __init__(self, dataset, verbose=True, **params):
         """
         Initialize the MultiSpectrum Kernel.
 
@@ -145,8 +148,9 @@ class MultiSpectrumKernel(KmersKernels):
             - kmax: Maximum length of k-mers (default: 20)
         """
         self.params = {"kmin": 7, "kmax": 20}  # Default params
-        super().__init__(dataset, **params)
-        print(f"MultiSpectrumKernel params: {self.params}")
+        super().__init__(dataset, verbose=verbose, **params)
+        if self.verbose:
+            print(f"MultiSpectrumKernel params: {self.params}")
 
         self.compute_gram_matrix()
 
@@ -165,7 +169,7 @@ class MultiSpectrumKernel(KmersKernels):
 class MismatchKernel(KmersKernels):
     """Kernel that allows for mismatches when counting k-mers."""
 
-    def __init__(self, dataset, **params):
+    def __init__(self, dataset, verbose=True, **params):
         """
         Initialize the Mismatch Kernel.
 
@@ -176,8 +180,9 @@ class MismatchKernel(KmersKernels):
             - m: Maximum number of mismatches allowed (default: 1)
         """
         self.params = {"k": 7, "m": 1}  # Default params
-        super().__init__(dataset, **params)
-        print(f"MismatchKernel params: {self.params}")
+        super().__init__(dataset, verbose=verbose, **params)
+        if self.verbose:
+            print(f"MismatchKernel params: {self.params}")
 
         self._neighborhood_cache = {}
         self.alphabet = ["A", "C", "G", "T"]

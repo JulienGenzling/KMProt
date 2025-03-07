@@ -1,6 +1,9 @@
 import cvxopt
 import numpy as np
 
+cvxopt.solvers.options["show_progress"] = False
+
+
 class Fitter:
     def __init__(self):
         self.intercept = None

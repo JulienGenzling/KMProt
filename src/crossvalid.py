@@ -5,16 +5,16 @@ from src.dataset import KFold
 from src.utils import write_results
 
 class CrossValid:
-    def __init__(self, fitter, dataset, kernel, k=5):
+    def __init__(self, fitter, dataset, kernel, k=5, verbose=False):
         self.fitter = fitter
         self.dataset = dataset
         self.kernel = kernel
         self.k = k
+        self.verbose = verbose
 
     def fit(self):
         kfold = KFold(self.dataset, self.k)
         results = []
-
         for fold_idx, fold in enumerate(kfold):
             train_dataset = fold["train"]
             test_dataset = fold["test"]
@@ -36,10 +36,13 @@ class CrossValid:
             accuracy = np.mean(predictions == test_dataset["labels"])
 
             results.append({"fold": fold_idx + 1, "accuracy": accuracy})
-            print(f"Fold {fold_idx + 1}/{self.k} - Accuracy: {accuracy:.4f}")
+
+            if self.verbose:
+                print(f"Fold {fold_idx + 1}/{self.k} - Accuracy: {accuracy:.4f}")
 
         cv_acc = np.mean([result["accuracy"] for result in results])
-        print("Overall accuracy : ", cv_acc)
+        if self.verbose:
+            print("Overall accuracy : ", cv_acc)
 
         write_results(
             self.dataset, self.fitter, self.kernel, cv_acc, "experiments.json"
