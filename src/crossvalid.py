@@ -45,7 +45,7 @@ class CrossValid:
             print("Overall accuracy : ", cv_acc)
 
         write_results(
-            self.dataset, self.fitter, self.kernel, cv_acc, "experiments.json"
+            self.dataset, self.fitter, self.kernel, cv_acc
         )
 
         return results, cv_acc

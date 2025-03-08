@@ -36,18 +36,11 @@ class Kernel:
 
 
 class WeightedSumKernel(Kernel):
-    def __init__(self, dataset, verbose=True, **kernel_params_list):
+    def __init__(self, dataset, kernel_params_list, verbose=True):
         super().__init__(verbose=verbose)
         self.dataset = dataset
         self.n = len(self.dataset)
         self.kernel_params_list = kernel_params_list
-        if kernel_params_list is None:
-            try:
-                results_df = pd.read_csv("results.csv")
-                kernel_params_list = self._get_kernel_list(results_df)
-            except:
-                raise Exception("No results file found and you provided no kernel list")
-
         self.compute_gram_matrix()
 
     def compute_gram_matrix(self):
@@ -64,9 +57,6 @@ class WeightedSumKernel(Kernel):
                     * MismatchKernel(self.dataset, **kernel_params).K
                 )
             return self.K
-    
-    def _get_kernel_list(self, results_df):
-        return
 
 class KmersKernels(Kernel):
 
@@ -163,7 +153,7 @@ class MultiSpectrumKernel(KmersKernels):
         return phi
 
     def _get_cache_filename(self):
-        return f"multispectrumkernel_{self.dataset.k}_{self.params['kmin']}_{self.params['kmax']}.pkl"
+        return f"/Data/kmprotdata/multispectrumkernel_{self.dataset.k}_{self.params['kmin']}_{self.params['kmax']}.pkl"
 
 
 class MismatchKernel(KmersKernels):
@@ -236,7 +226,7 @@ class MismatchKernel(KmersKernels):
 
     def _get_cache_filename(self):
         return (
-            f"mismatchkernel_{self.dataset.k}_{self.params['k']}_{self.params['m']}.pkl"
+            f"/Data/kmprotdata/mismatchkernel_{self.dataset.k}_{self.params['k']}_{self.params['m']}.pkl"
         )
 
 
