@@ -5,12 +5,13 @@ from src.dataset import KFold
 from src.utils import write_results
 
 class CrossValid:
-    def __init__(self, fitter, dataset, kernel, k=5, verbose=False):
+    def __init__(self, fitter, dataset, kernel, weight=False, k=5, verbose=False):
         self.fitter = fitter
         self.dataset = dataset
         self.kernel = kernel
         self.k = k
         self.verbose = verbose
+        self.weight = weight
 
     def fit(self):
         kfold = KFold(self.dataset, self.k)
@@ -44,9 +45,10 @@ class CrossValid:
         if self.verbose:
             print("Overall accuracy : ", cv_acc)
 
-        write_results(
-            self.dataset, self.fitter, self.kernel, cv_acc
-        )
+        if not self.weight:
+            write_results(
+                self.dataset, self.fitter, self.kernel, cv_acc
+            )
 
         return results, cv_acc
 

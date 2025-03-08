@@ -8,11 +8,11 @@ import pandas as pd
 
 
 class Kernel:
-    def __init__(self, verbose=True):
+    def __init__(self, verbose=False):
         self.K = None
         self.verbose = verbose
 
-    def compute_gram_matrix(self, verbose=True):
+    def compute_gram_matrix(self, verbose=False):
         raise NotImplementedError("This method should be overridden by subclasses")
 
     def __getitem__(self, index):
@@ -36,31 +36,55 @@ class Kernel:
 
 
 class WeightedSumKernel(Kernel):
-    def __init__(self, dataset, kernel_params_list, verbose=True):
+    def __init__(self, dataset, kernel_params_list, verbose=False):
         super().__init__(verbose=verbose)
         self.dataset = dataset
         self.n = len(self.dataset)
         self.kernel_params_list = kernel_params_list
+        self.phis = {}
         self.compute_gram_matrix()
 
     def compute_gram_matrix(self):
         self.K = np.zeros((self.n, self.n))
         for kernel_params in self.kernel_params_list:
-            if kernel_params["type"] == "spectrum":
+            if kernel_params["name"] == "spectrum":
+                kernel = MultiSpectrumKernel(self.dataset, **kernel_params)
                 self.K += (
                     kernel_params["weight"]
-                    * MultiSpectrumKernel(self.dataset, **kernel_params).K
+                    * kernel.K
                 )
-            elif kernel_params["type"] == "mismatch":
+                self.phis[kernel_params["weight"]] = kernel.phis
+            elif kernel_params["name"] == "mismatch":
+                kernel = MismatchKernel(self.dataset, **kernel_params)
                 self.K += (
                     kernel_params["weight"]
-                    * MismatchKernel(self.dataset, **kernel_params).K
+                    * kernel.K
                 )
-            return self.K
+                self.phis[kernel_params["weight"]] = kernel.phis
+        return self.K
+    
+    @staticmethod
+    def dot(phi1, phi2):
+        if len(phi1) > len(
+            phi2
+        ):  # Optimize by using the smaller dictionary for iteration
+            phi1, phi2 = phi2, phi1
+
+        dotprod = 0
+        for subset, count in phi1.items():
+            dotprod += phi2.get(subset, 0) * count
+        return dotprod
+    
+    @classmethod
+    def get_norms(cls, idx, phis):
+        norms = np.zeros(len(idx))
+        for weight, phis_ in phis.items():
+            norms += weight * np.array([np.sqrt(cls.dot(phis_[i], phis_[i])) for i in idx])
+        return norms
 
 class KmersKernels(Kernel):
 
-    def __init__(self, dataset, verbose=True, **params):
+    def __init__(self, dataset, verbose=False, **params):
         super().__init__(verbose=verbose)
         self.dataset = dataset
         self.n = len(self.dataset)
@@ -127,7 +151,7 @@ class KmersKernels(Kernel):
 class MultiSpectrumKernel(KmersKernels):
     """Kernel that counts exact matches of varying-length k-mers."""
 
-    def __init__(self, dataset, verbose=True, **params):
+    def __init__(self, dataset, verbose=False, **params):
         """
         Initialize the MultiSpectrum Kernel.
 
@@ -159,7 +183,7 @@ class MultiSpectrumKernel(KmersKernels):
 class MismatchKernel(KmersKernels):
     """Kernel that allows for mismatches when counting k-mers."""
 
-    def __init__(self, dataset, verbose=True, **params):
+    def __init__(self, dataset, verbose=False, **params):
         """
         Initialize the Mismatch Kernel.
 

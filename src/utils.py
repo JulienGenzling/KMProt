@@ -4,50 +4,33 @@ import json
 from src.kernel import *
 from src.fitter import *
 
-class Experiment:
-    def __init__(self, exp_dict_or_file, experiments_dir="."):
-        if isinstance(exp_dict_or_file, dict):
-            self.experiment = exp_dict_or_file
-        elif isinstance(exp_dict_or_file, str):
-            file_path = os.path.join(experiments_dir, exp_dict_or_file)
-            with open(file_path, "r") as f:
-                self.experiment = json.load(f)
-        else:
-            raise ValueError("Invalid input: expected a dictionary or a filename")
 
-    def __eq__(self, other):
-        if not isinstance(other, Experiment):
-            return False
-        return self.experiment == other.experiment
-
-    def __repr__(self):
-        return f"Experiment({self.experiment})"
-
-def write_results(dataset, fitter, kernel, acc, output_folder='experiments'):
+def write_results(dataset, fitter, kernel, acc, output_folder="experiments", weight=False):
     os.makedirs(output_folder, exist_ok=True)
 
-    existing_files = [f for f in os.listdir(output_folder) if f.startswith('experiment_') and f.endswith('.json')]
+    existing_files = [
+        f
+        for f in os.listdir(output_folder)
+    ]
     num_files = len(existing_files)
 
-    new_file_name = f'experiment_{num_files + 1}.json'
+    if weight:
+        new_file_name = f"ensemble_experiment_{num_files + 1}.json"
+    else:
+        new_file_name = f"experiment_{num_files + 1}.json"
     new_file_path = os.path.join(output_folder, new_file_name)
 
-    new_experiment = {
-        "dataset": dataset.k,
-        "fitter": {
-            "name": fitter.__class__.__name__,
-            "params": fitter.params,
-        },
-        "kernel": {
-            "name": kernel.__class__.__name__,
-            "params": kernel.params,
-        },
-        "results": acc,
-    }
+    kernel_params = kernel.kernel_list_params if weight else kernel.params
+    if weight:
+        new_experiment = {
+            "dataset": dataset.k,
+            "fitter": fitter.params,
+            "kernel": kernel_params,
+            "results": acc,
+        }
 
     with open(new_file_path, "w") as f:
         json.dump(new_experiment, f, indent=4)
-
 
 def get_obj(dataset, kernel_params, fitter_params, verbose):
     if kernel_params["name"] == "spectrum":
