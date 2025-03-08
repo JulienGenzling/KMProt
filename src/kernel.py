@@ -83,7 +83,6 @@ class WeightedSumKernel(Kernel):
         return norms
 
 class KmersKernels(Kernel):
-
     def __init__(self, dataset, verbose=False, **params):
         super().__init__(verbose=verbose)
         self.dataset = dataset
@@ -149,18 +148,7 @@ class KmersKernels(Kernel):
 
 
 class MultiSpectrumKernel(KmersKernels):
-    """Kernel that counts exact matches of varying-length k-mers."""
-
     def __init__(self, dataset, verbose=False, **params):
-        """
-        Initialize the MultiSpectrum Kernel.
-
-        Parameters:
-        dataset: Dataset object containing sequences
-        params: Dictionary with kernel parameters:
-            - kmin: Minimum length of k-mers (default: 7)
-            - kmax: Maximum length of k-mers (default: 20)
-        """
         self.params = {"kmin": 7, "kmax": 20}  # Default params
         super().__init__(dataset, verbose=verbose, **params)
         if self.verbose:
@@ -181,18 +169,7 @@ class MultiSpectrumKernel(KmersKernels):
 
 
 class MismatchKernel(KmersKernels):
-    """Kernel that allows for mismatches when counting k-mers."""
-
     def __init__(self, dataset, verbose=False, **params):
-        """
-        Initialize the Mismatch Kernel.
-
-        Parameters:
-        dataset: Dataset object containing sequences
-        params: Dictionary with kernel parameters:
-            - k: Length of k-mers (default: 7)
-            - m: Maximum number of mismatches allowed (default: 1)
-        """
         self.params = {"k": 7, "m": 1}  # Default params
         super().__init__(dataset, verbose=verbose, **params)
         if self.verbose:
@@ -261,8 +238,9 @@ if __name__ == "__main__":
     dataset = Dataset(0)
 
     # Test the spectrum kernel
-    spectrum_kernel = MultiSpectrumKernel(dataset, kmin=7, kmax=20)
+    spectrum_kernel = MultiSpectrumKernel(dataset, kmin=1, kmax=2)
     print("Spectrum kernel matrix shape:", spectrum_kernel.K.shape)
+    print("Spectrum kernel matrix shape:", spectrum_kernel.params)
 
     # Test the mismatch kernel
     mismatch_kernel = MismatchKernel(dataset, k=5, m=1)
