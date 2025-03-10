@@ -30,14 +30,8 @@ def write_results(dataset, fitter, kernel, acc, output_folder="experiments", wei
 
     with open(new_file_path, "w") as f:
         json.dump(new_experiment, f, indent=4)
-
-def get_obj(dataset, kernel_params, fitter_params, verbose):
-    if kernel_params["name"] == "spectrum":
-        kernel = MultiSpectrumKernel(dataset, **kernel_params, verbose=verbose)
-    if kernel_params["name"] == "mismatch":
-        kernel = MismatchKernel(dataset, **kernel_params, verbose=verbose)
-    else:
-        NotImplementedError("Kernel not implemented")
+    
+def get_fitter(fitter_params):
     if fitter_params["name"] == "svm":
         fitter = SVM(**fitter_params)
     elif fitter_params["name"] == "klr":
@@ -46,23 +40,22 @@ def get_obj(dataset, kernel_params, fitter_params, verbose):
         fitter = KRR(**fitter_params)
     else:
         NotImplementedError("Fitter not implemented")
+    return fitter
+
+def get_obj(dataset, kernel_params, fitter_params, verbose):
+    if kernel_params["name"] == "spectrum":
+        kernel = MultiSpectrumKernel(dataset, **kernel_params, verbose=verbose)
+    if kernel_params["name"] == "mismatch":
+        kernel = MismatchKernel(dataset, **kernel_params, verbose=verbose)
+    else:
+        NotImplementedError("Kernel not implemented")
+    fitter = get_fitter(fitter_params)
     return kernel, fitter
 
-
-def find_best_params(dataset):
-
-    with open("experiments.json", "r") as file:
-        experiments = json.load(file)
-
-    sorted_experiments = sorted(experiments, key=lambda x: x["results"], reverse=True)
-    best_2 = sorted_experiments[:2]
-    for i, exp in enumerate(best_2, start=1):
-        print(f"Best {i}:")
-        print(f"  Dataset: {exp['dataset']}")
-        print(f"  Fitter: {exp['fitter']}")
-        print(f"  Kernel: {exp['kernel']}")
-        print(f"  Results: {exp['results']}\n")
-    pass
+def get_obj_ensemble(dataset, kernel_configs, fitter_params, verbose):
+    kernel = WeightedSumKernel(dataset, kernel_configs, verbose=verbose)
+    fitter = get_fitter(fitter_params)
+    return kernel, fitter
 
 
 if __name__ == "__main__":

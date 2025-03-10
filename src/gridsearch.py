@@ -1,124 +1,60 @@
+import os
+import json
 import itertools
 import time
 import logging
-import os
-import json
-from tqdm import tqdm
 import multiprocessing
 from multiprocessing import Pool
 from functools import partial
+from tqdm import tqdm
 
 from src.dataset import Dataset
 from src.crossvalid import CrossValid
 from src.utils import get_obj
 
 
-# Define a helper function for unpacking arguments - defined at module level
 def _run_task(args):
-    """Helper function to unpack arguments for process_parameter_combination"""
     func, arg_tuple = args
     return func(*arg_tuple)
 
 
-# Setup the logger for the main process
-def setup_logger(log_file=None):
-    logger = logging.getLogger("HyperGridSearchLogger")
+def setup_logger(logger):
     logger.setLevel(logging.DEBUG)
-    
-    # Clear existing handlers to avoid duplicates
-    if logger.handlers:
+    if logger.hasHandlers():
         logger.handlers.clear()
-        
-    # Console handler
-    console_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
-    # File handler if a log file is specified
-    if log_file:
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
     return logger
 
 
-# Function to process one parameter combination - defined at module level
 def process_parameter_combination(
-    dataset_idx, 
-    kernel_params_orig, 
-    fitter_params_orig, 
-    cv_k, 
-    experiments_dir="experiments"
+    dataset_idx, kernel_params_orig, fitter_params_orig, cv_k
 ):
-    # Set up both file and console logging for each process
     process_id = multiprocessing.current_process().name
     logger = logging.getLogger(f"Process-{process_id}")
-    logger.setLevel(logging.DEBUG)
-    
-    # Clear existing handlers to avoid duplicates
-    if logger.handlers:
-        logger.handlers.clear()
-    
-    # Create a console handler for immediate output
-    console_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s - %(processName)s - %(levelname)s - %(message)s")
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
-    # Create a file handler for this process to capture detailed logs
-    os.makedirs("logs", exist_ok=True)
-    file_handler = logging.FileHandler(f"logs/process_{process_id}.log")
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    logger = setup_logger(logger)
 
-    logger.info(f"Processing dataset {dataset_idx} with kernel {kernel_params_orig} and fitter {fitter_params_orig}")
-
-    kernel_params = kernel_params_orig.copy()
-    fitter_params = fitter_params_orig.copy()
+    kernel_params, fitter_params = kernel_params_orig.copy(), fitter_params_orig.copy()
 
     try:
-        logger.info(f"Creating dataset {dataset_idx}")
         dataset = Dataset(dataset_idx)
-        
-        logger.info(f"Creating kernel and fitter objects")
         kernel, fitter = get_obj(dataset, kernel_params, fitter_params, verbose=False)
-        
-        logger.info(f"Setting up cross-validation with k={cv_k}")
         cross_valid = CrossValid(fitter, dataset, kernel, k=cv_k, verbose=False)
-
-        logger.info(f"Starting cross-validation")
-        results, _ = cross_valid.fit()  # This will write results to experiments.json
-        
-        # Save results manually to ensure they're properly written
-        result_dict = {
+        results, _ = cross_valid.fit()
+        logger.info(
+            f"✅ SUCCESSFULLY processed dataset {dataset_idx} with kernel {kernel_params} and fitter {fitter_params}"
+        )
+        return {
             "dataset": dataset_idx,
             "kernel": kernel_params,
             "fitter": fitter_params,
-            "results": results
+            "results": results,
         }
-        
-        # Ensure experiments directory exists
-        os.makedirs(experiments_dir, exist_ok=True)
-        
-        # Create a unique filename
-        timestamp = int(time.time())
-        filename = f"{experiments_dir}/experiment_{dataset_idx}_{kernel_params['name']}_{fitter_params['name']}_{timestamp}.json"
-        
-        logger.info(f"Saving results to {filename}")
-        with open(filename, 'w') as f:
-            json.dump(result_dict, f, indent=2)
-            
-        logger.info(f"✅ SUCCESSFULLY processed dataset {dataset_idx} with kernel {kernel_params} and fitter {fitter_params}")
-        return result_dict
-        
     except Exception as e:
         import traceback
-        error_trace = traceback.format_exc()
-        logger.error(
-            f"❌ ERROR processing dataset {dataset_idx} with kernel {kernel_params} and fitter {fitter_params}: {str(e)}\n{error_trace}"
-        )
+
+        logger.error(f"Error: {str(e)}\n{traceback.format_exc()}")
         return None
 
 
@@ -129,14 +65,13 @@ class HyperGridSearch:
         kernel_param_grid,
         fitter_param_grid,
         experiments_dir="experiments",
-        log_file="hypergrid_search.log"
     ):
         self.datasets = datasets
         self.kernel_param_grid = kernel_param_grid
         self.fitter_param_grid = fitter_param_grid
         self.experiments_dir = experiments_dir
-        self.log_file = log_file
-        self.logger = setup_logger(log_file)  # Initialize logger with file output
+        logger = logging.getLogger("HyperGridSearchLogger")
+        self.logger = setup_logger(logger)
         self.existing_experiments = self._load_existing_experiments()
 
     def _load_existing_experiments(self):
@@ -219,16 +154,10 @@ class HyperGridSearch:
     def run_search(
         self,
         cv_k: int = 5,
-        max_workers: int = None,
+        num_workers: int = None,
         verbose: bool = True,
         skip_existing: bool = True,
     ):
-        if max_workers is None:
-            max_workers = multiprocessing.cpu_count()
-        else:
-            max_workers = min(max_workers, multiprocessing.cpu_count())
-
-        self.logger.info(f"Using {max_workers} processes")
 
         kernel_params_list = self._generate_kernel_combinations()
         fitter_params_list = self._generate_fitter_combinations()
@@ -239,8 +168,7 @@ class HyperGridSearch:
         all_combinations = []
         total_combinations = 0
         skipped_combinations = 0
-        
-        # Corrected logic for checking existing experiments
+
         for dataset_idx in self.datasets:
             for kernel_params in kernel_params_list:
                 for fitter_params in fitter_params_list:
@@ -248,7 +176,7 @@ class HyperGridSearch:
                     should_skip = skip_existing and self._experiment_exists(
                         dataset_idx, kernel_params, fitter_params
                     )
-                    
+
                     if should_skip:
                         skipped_combinations += 1
                     else:
@@ -261,22 +189,23 @@ class HyperGridSearch:
                         )
 
         self.logger.info(f"Total combinations: {total_combinations}")
-        self.logger.info(f"Skipping {skipped_combinations} already processed combinations")
+        self.logger.info(
+            f"Skipping {skipped_combinations} already processed combinations"
+        )
         self.logger.info(f"Processing {len(all_combinations)} combinations")
 
         remaining_combinations = len(all_combinations)
-        
+
         if remaining_combinations == 0:
-            self.logger.info("No combinations to process. All experiments already exist.")
+            self.logger.info(
+                "No combinations to process. All experiments already exist."
+            )
             return []
 
-        # Create a partial function with the experiments_dir parameter
         process_func = partial(
-            process_parameter_combination,
-            experiments_dir=self.experiments_dir
+            process_parameter_combination, experiments_dir=self.experiments_dir
         )
-        
-        # Prepare the arguments for _run_task
+
         task_args = []
         for dataset_idx, kernel_params, fitter_params in all_combinations:
             arg_tuple = (dataset_idx, kernel_params, fitter_params, cv_k)
@@ -284,20 +213,13 @@ class HyperGridSearch:
 
         start_time = time.time()
 
-        # Set the start method for multiprocessing
-        try:
-            multiprocessing.set_start_method("spawn", force=True)
-        except RuntimeError:
-            # If already set, ignore
-            pass
-        
-        # Process the combinations
         results = []
-        with Pool(processes=max_workers) as pool:
+        with Pool(processes=num_workers) as pool:
             if verbose:
-                pbar = tqdm(total=remaining_combinations, desc="Processing combinations")
+                pbar = tqdm(
+                    total=remaining_combinations, desc="Processing combinations"
+                )
 
-            # Map to the unpacking function that is defined at module level
             for result in pool.imap_unordered(_run_task, task_args):
                 results.append(result)
                 if verbose and result is not None:
@@ -305,44 +227,28 @@ class HyperGridSearch:
 
             if verbose:
                 pbar.close()
-                
-            # Ensure all processes terminate properly
+
             pool.close()
             pool.join()
 
         end_time = time.time()
         self.logger.info(f"Total execution time: {end_time - start_time:.2f} seconds")
-        
-        # Return non-None results
+
         return [r for r in results if r is not None]
 
 
 if __name__ == "__main__":
-    # Configure the root logger
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(processName)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler("main_process.log"),
-            logging.StreamHandler()
-        ]
-    )
-    
-    # Clean up any existing log files
-    if not os.path.exists("logs"):
-        os.makedirs("logs")
-    
-    # Set number of processes explicitly to avoid exceeding your limit
-    max_workers = 10
+
+    max_workers = min(10, multiprocessing.cpu_count())
     print(f"Setting up grid search with {max_workers} worker processes")
-    
+
     datasets = [0, 1, 2]
+    
+    # Don't use high values for (k,m) if mismatch because will exceed RAM quickly
     kernel_param_grid = {
-        "name": ["spectrum", "mismatch"],
-        "kmin": range(5, 21),
-        "kmax": range(5, 21),
-        "k": range(5, 15),
-        "m": range(1, 4),
+        "name": ["mismatch"],
+        "k": range(5, 7),
+        "m": range(1, 2),
     }
     fitter_param_grid = {
         "name": ["svm"],
@@ -351,27 +257,14 @@ if __name__ == "__main__":
     }
 
     search = HyperGridSearch(
-        datasets, 
-        kernel_param_grid, 
+        datasets,
+        kernel_param_grid,
         fitter_param_grid,
-        log_file="hypergrid_search.log"  # Add a log file to keep all logs
     )
-
-    # Explicitly set multiprocessing start method before creating the search object
-    try:
-        multiprocessing.set_start_method("spawn")
-    except RuntimeError:
-        # Method already set
-        pass
-        
-    # Print CPU count to verify
-    print(f"System CPU count: {multiprocessing.cpu_count()}")
-    print(f"Using workers: {max_workers}")
 
     results = search.run_search(
         cv_k=5,
-        max_workers=max_workers,  # Fixed value from above
-        skip_existing=True,  # Skip already processed experiments
+        num_workers=max_workers,
     )
-    
+
     print(f"Grid search complete. Processed {len(results)} combinations successfully.")

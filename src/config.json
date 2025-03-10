@@ -1,4 +1,5 @@
 {
+    "ensemble": "False", 
     "0": {
         "kernel_params": {
             "name": "spectrum",

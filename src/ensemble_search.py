@@ -80,7 +80,6 @@ class EnsembleSearch:
                 
             print(f"\nRunning ensemble for dataset {dataset_idx}...")
             
-            # Load dataset
             dataset = Dataset(dataset_idx)
             
             configs = self._normalize_weights(self.best_configs[dataset_idx])

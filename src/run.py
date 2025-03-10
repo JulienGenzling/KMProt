@@ -1,11 +1,9 @@
 import json
 import numpy as np
+import pandas as pd
 from src.dataset import Dataset
-from src.crossvalid import CrossValid
-from src.fitter import SVM, KRR, KLR
-from src.kernel import MultiSpectrumKernel, MismatchKernel
-from src.utils import get_obj
-
+from tqdm import tqdm
+from src.utils import get_obj, get_obj_ensemble
 
 def load_config(file_path):
     with open(file_path, "r") as file:
@@ -14,25 +12,50 @@ def load_config(file_path):
 
 
 def main():
-
-    np.random.seed(42)
-
     config = load_config("src/config.json")
-    overall_acc = []
+    all_predictions = []
 
     for datafold in config:
         dataset = Dataset(int(datafold))
 
-        kernel_params = config[datafold]["kernel_params"]
         fitter_params = config[datafold]["fitter_params"]
 
-        kernel, fitter = get_obj(kernel_params, fitter_params)
+        if config["ensemble"] == "False":
+            kernel_params = config[datafold]["kernel_params"]
+            fitter, kernel = get_obj(dataset, kernel_params, fitter_params)
+        else:
+            kernel_configs = config[datafold]["kernel_configs"]
+            fitter, kernel = get_obj_ensemble(dataset, kernel_configs, fitter_params)
 
-        cross_valid = CrossValid(fitter, dataset, kernel, k=5)
-        results, cv_acc = cross_valid.fit()
-        overall_acc.append(cv_acc)
+        K = kernel[:, :]
+        K_norm = kernel.normalize(K)
+        fitter.fit(K_norm, dataset.labels)
 
-    print("Mean accuracy across the 3 datasets : ", np.mean(overall_acc))
+        data = pd.read_csv(f"data/Xte{datafold}.csv")
+        data = data.sort_values(by="Id")
+        sequences = data["seq"].values
+
+        predictions = []
+        for seq in tqdm(sequences, desc=f"Processing fold {datafold}"):
+            phi = kernel._get_phi(seq)
+            Kx = np.zeros(K.shape[0])
+            for j, phi_tr in enumerate(kernel.phis):
+                Kx[j] = kernel.dot(phi, phi_tr) / np.sqrt(
+                    kernel.dot(phi_tr, phi_tr) * kernel.dot(phi, phi)
+                )
+            pred = (
+                np.dot(fitter.alpha * fitter.sv_label, Kx[fitter.sv_indices])
+                + fitter.intercept
+            )
+            predictions.append(np.sign(pred))
+
+        all_predictions.extend(list(zip(data["Id"], predictions)))
+
+    all_predictions_df = pd.DataFrame(all_predictions, columns=["Id", "Bound"])
+    all_predictions_df = all_predictions_df.sort_values(by="Id")
+    all_predictions_df["Bound"] = all_predictions_df["Bound"].astype(int)
+    all_predictions_df["Bound"] = all_predictions_df["Bound"].map({-1: 0, 1: 1})
+    all_predictions_df.to_csv("submission.csv", index=False)
 
 
 if __name__ == "__main__":
