@@ -20,14 +20,13 @@ def write_results(dataset, fitter, kernel, acc, output_folder="experiments", wei
         new_file_name = f"experiment_{num_files + 1}.json"
     new_file_path = os.path.join(output_folder, new_file_name)
 
-    kernel_params = kernel.kernel_list_params if weight else kernel.params
-    if weight:
-        new_experiment = {
-            "dataset": dataset.k,
-            "fitter": fitter.params,
-            "kernel": kernel_params,
-            "results": acc,
-        }
+    kernel_params = kernel.kernel_params_list if weight else kernel.params
+    new_experiment = {
+        "dataset": dataset.k,
+        "fitter": fitter.params,
+        "kernel": kernel_params,
+        "results": acc,
+    }
 
     with open(new_file_path, "w") as f:
         json.dump(new_experiment, f, indent=4)
@@ -64,3 +63,12 @@ def find_best_params(dataset):
         print(f"  Kernel: {exp['kernel']}")
         print(f"  Results: {exp['results']}\n")
     pass
+
+
+if __name__ == "__main__":
+    from src.dataset import Dataset
+    dataset = Dataset(1)
+    kernel_params = {'name': 'mismatch', 'k': 9, 'm': 1}
+    fitter_params = {'name': 'svm', 'C': 1, 'tol': 1e-4}
+    verbose = True
+    kernel, fitter = get_obj(dataset, kernel_params, fitter_params, verbose)

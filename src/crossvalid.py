@@ -55,14 +55,15 @@ class CrossValid:
 
 if __name__ == "__main__":
     from src.dataset import Dataset
-    from src.kernel import MultiSpectrumKernel
+    from src.kernel import MultiSpectrumKernel, MismatchKernel
     from src.fitter import SVM
 
-    dataset = Dataset(k=0)
+    dataset = Dataset(k=1)
     # dataset.sequences = np.array(["ATCT", "ATTT", "CGTA", "CTCT", "CTTC"])
     # dataset.labels = np.array([0, 1, 1, 1, 0])
-    kernel = MultiSpectrumKernel(dataset)
-    fitter = SVM(C=5)
+    params = {'name': 'mismatch', 'k': 15, 'm': 2}
+    kernel = MismatchKernel(dataset, **params, verbose=True)
+    fitter = SVM(C=1, tol=1e-4)
     cross_valid = CrossValid(fitter, dataset, kernel, k=5)
     results = cross_valid.fit()
     print("Cross-validation results:", results)

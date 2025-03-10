@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 from itertools import product
 from tqdm import tqdm
 import pickle
-import pandas as pd
+from scipy import sparse
 
 
 class Kernel:
@@ -174,56 +174,99 @@ class MismatchKernel(KmersKernels):
         super().__init__(dataset, verbose=verbose, **params)
         if self.verbose:
             print(f"MismatchKernel params: {self.params}")
-
-        self._neighborhood_cache = {}
+        
         self.alphabet = ["A", "C", "G", "T"]
-
+        
+        self.kmer_set, self.neighbours = self._precompute_kmer_neighbors()
+        
         self.compute_gram_matrix()
-
+    
+    def _precompute_kmer_neighbors(self):
+        all_kmers = set()
+        k = self.params["k"]
+        
+        for seq in self.dataset.sequences:
+            for i in range(len(seq) - k + 1):
+                all_kmers.add(seq[i:i+k])
+        
+        kmer_set = {kmer: idx for idx, kmer in enumerate(sorted(all_kmers))}
+        
+        neighbours = {}
+        for kmer in tqdm(all_kmers, desc="Computing neighborhoods", disable=not self.verbose):
+            neighbours[kmer] = self._generate_mismatch_neighborhood(kmer, self.params["m"])
+        
+        if self.verbose:
+            print(f"Generated {len(kmer_set)} unique kmers and their neighborhoods")
+            
+        return kmer_set, neighbours
+    
     def _generate_mismatch_neighborhood(self, kmer, m):
-        cache_key = (kmer, m)
-        if cache_key in self._neighborhood_cache:
-            return self._neighborhood_cache[cache_key]
-
         if m == 0:
             return {kmer}
-
-        neighborhood = {kmer}
-
-        for i in range(len(kmer)):
-            prefix = kmer[:i]
-            suffix = kmer[i + 1 :] if i < len(kmer) - 1 else ""
-            for base in self.alphabet:
-                if base != kmer[i]:
-                    variant = prefix + base + suffix
-                    neighborhood.add(variant)
-
-        if m > 1:
-            extended_neighborhood = set(neighborhood)
-            for variant in neighborhood:
-                if variant != kmer:
-                    extended_neighborhood.update(
-                        self._generate_mismatch_neighborhood(variant, m - 1)
-                    )
-            neighborhood = extended_neighborhood
-
-        self._neighborhood_cache[cache_key] = neighborhood
+        neighborhood = set()
+        positions = list(range(len(kmer)))
+        for r in range(1, m + 1):
+            for pos_combo in product(positions, repeat=r):
+                if len(set(pos_combo)) < len(pos_combo): # otherwise it would be like r=r-1
+                    continue
+                for base_combo in product(self.alphabet, repeat=r):
+                    kmer_list = list(kmer)
+                    valid_mismatch = False
+                    for i, pos in enumerate(pos_combo):
+                        if kmer_list[pos] != base_combo[i]: # we found a new neighbor
+                            kmer_list[pos] = base_combo[i]
+                            valid_mismatch = True
+                    if valid_mismatch:
+                        neighborhood.add(''.join(kmer_list))
+        neighborhood.add(kmer)
         return neighborhood
-
+    
+    def neighbour_embed_kmer(self, seq):
+        kmer_seq = [seq[j:j + self.params["k"]] for j in range(len(seq) - self.params["k"] + 1)]
+        seq_emb = {}
+        for kmer in kmer_seq:
+            if kmer not in self.neighbours:
+                continue
+            neigh_kmer = self.neighbours[kmer]
+            for neigh in neigh_kmer:
+                if neigh not in self.kmer_set:
+                    continue
+                idx_neigh = self.kmer_set[neigh]
+                if idx_neigh in seq_emb:
+                    seq_emb[idx_neigh] += 1.
+                else:
+                    seq_emb[idx_neigh] = 1.
+        return seq_emb
+    
     def _get_phi(self, seq):
-        k = self.params["k"]
-        m = self.params["m"]
-
-        kmers = [seq[i : i + k] for i in range(len(seq) - k + 1)]
-
-        phi = defaultdict(int)
-
-        for kmer in kmers:
-            neighborhood = self._generate_mismatch_neighborhood(kmer, m)
-            for neighbor in neighborhood:
-                phi[neighbor] += 1
-
-        return dict(phi)
+        return self.neighbour_embed_kmer(seq)
+    
+    def compute_gram_matrix(self):
+        filename = self._get_cache_filename()
+        
+        if os.path.exists(filename):
+            if self.verbose:
+                print(f"Loading Gram matrix from file: {filename}")
+            with open(filename, "rb") as file:
+                self.K = pickle.load(file)
+                self.phis = self._get_phis()  # Still need phis to fit with pipeline
+            return self.K
+        
+        self.phis = self._get_phis()
+        
+        data, row, col = [], [], []
+        for i, phi in enumerate(self.phis):
+            data.extend(list(phi.values()))
+            row.extend(list(phi.keys()))
+            col.extend([i] * len(phi))
+        
+        X_sm = sparse.coo_matrix((data, (row, col)))
+        self.K = (X_sm.T @ X_sm).toarray()
+        
+        with open(filename, "wb") as file:
+            pickle.dump(self.K, file)
+            
+        return self.K
 
     def _get_cache_filename(self):
         return (
