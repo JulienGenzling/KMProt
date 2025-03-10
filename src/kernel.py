@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from collections import Counter, defaultdict
 from itertools import product
 from tqdm import tqdm
 import pickle
@@ -12,7 +11,7 @@ class Kernel:
         self.K = None
         self.verbose = verbose
 
-    def compute_gram_matrix(self, verbose=False):
+    def compute_gram_matrix(self):
         raise NotImplementedError("This method should be overridden by subclasses")
 
     def __getitem__(self, index):
@@ -38,6 +37,7 @@ class Kernel:
 class WeightedSumKernel(Kernel):
     def __init__(self, dataset, kernel_params_list, verbose=False):
         super().__init__(verbose=verbose)
+        self.verbose = verbose
         self.dataset = dataset
         self.n = len(self.dataset)
         self.kernel_params_list = kernel_params_list
@@ -48,20 +48,32 @@ class WeightedSumKernel(Kernel):
         self.K = np.zeros((self.n, self.n))
         for kernel_params in self.kernel_params_list:
             if kernel_params["name"] == "spectrum":
-                kernel = MultiSpectrumKernel(self.dataset, **kernel_params)
+                kernel = MultiSpectrumKernel(self.dataset, **kernel_params, verbose=self.verbose)
                 self.K += (
                     kernel_params["weight"]
                     * kernel.K
                 )
                 self.phis[kernel_params["weight"]] = kernel.phis
             elif kernel_params["name"] == "mismatch":
-                kernel = MismatchKernel(self.dataset, **kernel_params)
+                kernel = MismatchKernel(self.dataset, **kernel_params, verbose=self.verbose)
                 self.K += (
                     kernel_params["weight"]
                     * kernel.K
                 )
                 self.phis[kernel_params["weight"]] = kernel.phis
         return self.K
+
+    def _get_phi(self, seq):
+        phi = {}
+        for kernel_params in self.kernel_params_list:
+            if kernel_params["name"] == "spectrum":
+                kernel = MultiSpectrumKernel(self.dataset, **kernel_params, verbose=self.verbose)
+                phi[kernel_params["weight"]] = kernel._get_phi(seq)
+            elif kernel_params["name"] == "mismatch":
+                kernel = MismatchKernel(self.dataset, **kernel_params, verbose=self.verbose)
+                phi[kernel_params["weight"]] = kernel._get_phi(seq)
+        return phi
+        
     
     @staticmethod
     def dot(phi1, phi2):
@@ -221,7 +233,7 @@ class MismatchKernel(KmersKernels):
         neighborhood.add(kmer)
         return neighborhood
     
-    def neighbour_embed_kmer(self, seq):
+    def neighbour_phi(self, seq):
         kmer_seq = [seq[j:j + self.params["k"]] for j in range(len(seq) - self.params["k"] + 1)]
         seq_emb = {}
         for kmer in kmer_seq:
@@ -239,7 +251,7 @@ class MismatchKernel(KmersKernels):
         return seq_emb
     
     def _get_phi(self, seq):
-        return self.neighbour_embed_kmer(seq)
+        return self.neighbour_phi(seq)
     
     def compute_gram_matrix(self):
         filename = self._get_cache_filename()
@@ -281,10 +293,16 @@ if __name__ == "__main__":
     dataset = Dataset(0)
 
     # Test the spectrum kernel
-    spectrum_kernel = MultiSpectrumKernel(dataset, kmin=1, kmax=2)
+    spectrum_kernel = MultiSpectrumKernel(dataset, kmin=1, kmax=2, verbose=True)
     print("Spectrum kernel matrix shape:", spectrum_kernel.K.shape)
-    print("Spectrum kernel matrix shape:", spectrum_kernel.params)
 
     # Test the mismatch kernel
-    mismatch_kernel = MismatchKernel(dataset, k=5, m=1)
+    mismatch_kernel = MismatchKernel(dataset, k=5, m=1, verbose=True)
     print("Mismatch kernel matrix shape:", mismatch_kernel.K.shape)
+
+    # Test the weighted sum kernel
+    wsum_kernel = WeightedSumKernel(
+        dataset, [{"name": "spectrum", "kmin": 1, "kmax": 2, "weight": 0.5}, {"name": "mismatch", "k": 5, "m": 1, "weight": 0.5}],
+        verbose=True
+    )
+    print("Weighted sum kernel matrix shape:", mismatch_kernel.K.shape)

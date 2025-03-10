@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from src.dataset import Dataset
 from src.crossvalid import CrossValid
-from src.utils import get_obj
+from src.utils import get_obj, load_experiments
 
 
 def _run_task(args):
@@ -72,30 +72,8 @@ class HyperGridSearch:
         self.experiments_dir = experiments_dir
         logger = logging.getLogger("HyperGridSearchLogger")
         self.logger = setup_logger(logger)
-        self.existing_experiments = self._load_existing_experiments()
-
-    def _load_existing_experiments(self):
-        self.logger.info(
-            f"Loading existing experiments from {self.experiments_dir} folder"
-        )
-
-        existing_experiments = []
-        if os.path.exists(self.experiments_dir):
-            for filename in os.listdir(self.experiments_dir):
-                if filename.endswith(".json"):
-                    try:
-                        with open(
-                            os.path.join(self.experiments_dir, filename), "r"
-                        ) as f:
-                            exp = json.load(f)
-                        existing_experiments.append(exp)
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Error loading experiment {filename}: {str(e)}"
-                        )
-
-        self.logger.info(f"Loaded {len(existing_experiments)} existing experiments")
-        return existing_experiments
+        self.existing_experiments = load_experiments(self.experiments_dir)
+        logger.info(f"Loaded {len(self.existing_experiments)} experiments")
 
     def _experiment_exists(self, dataset_idx, kernel_params, fitter_params):
         mock_experiment = {
@@ -203,7 +181,7 @@ class HyperGridSearch:
             return []
 
         process_func = partial(
-            process_parameter_combination, experiments_dir=self.experiments_dir
+            process_parameter_combination
         )
 
         task_args = []
@@ -243,16 +221,18 @@ if __name__ == "__main__":
     print(f"Setting up grid search with {max_workers} worker processes")
 
     datasets = [0, 1, 2]
-    
+
     # Don't use high values for (k,m) if mismatch because will exceed RAM quickly
     kernel_param_grid = {
-        "name": ["mismatch"],
-        "k": range(5, 7),
-        "m": range(1, 2),
+        "name": ["spectrum", "mismatch"],
+        "kmin": range(5, 21),
+        "kmax": range(5, 21),
+        "k": range(5, 15),
+        "m": range(1, 3),
     }
     fitter_param_grid = {
         "name": ["svm"],
-        "C": [1],
+        "C": [2, 3, 4, 5],
         "tol": [1e-4],
     }
 

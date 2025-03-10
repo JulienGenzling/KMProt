@@ -33,9 +33,7 @@ class CrossValid:
             )  # -> creates alpha and intercept
 
             predictions = self.fitter.predict(K_ts, norms_tr, norms_ts)
-
             accuracy = np.mean(predictions == test_dataset["labels"])
-
             results.append({"fold": fold_idx + 1, "accuracy": accuracy})
 
             if self.verbose:
@@ -47,7 +45,7 @@ class CrossValid:
 
         if not self.weight:
             write_results(
-                self.dataset, self.fitter, self.kernel, cv_acc
+                self.dataset, self.fitter, self.kernel, cv_acc, weight=self.weight
             )
 
         return results, cv_acc

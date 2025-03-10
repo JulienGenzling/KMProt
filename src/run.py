@@ -14,18 +14,20 @@ def load_config(file_path):
 def main():
     config = load_config("src/config.json")
     all_predictions = []
+    datasets = ["0", "1", "2"]
 
-    for datafold in config:
+    for datafold in datasets:
         dataset = Dataset(int(datafold))
 
         fitter_params = config[datafold]["fitter_params"]
+        ensemble = not config["ensemble"] == "False"
 
-        if config["ensemble"] == "False":
+        if not ensemble:
             kernel_params = config[datafold]["kernel_params"]
-            fitter, kernel = get_obj(dataset, kernel_params, fitter_params)
+            fitter, kernel = get_obj(dataset, kernel_params, fitter_params, verbose=True)
         else:
             kernel_configs = config[datafold]["kernel_configs"]
-            fitter, kernel = get_obj_ensemble(dataset, kernel_configs, fitter_params)
+            fitter, kernel = get_obj_ensemble(dataset, kernel_configs, fitter_params, verbose=True)
 
         K = kernel[:, :]
         K_norm = kernel.normalize(K)
@@ -39,10 +41,17 @@ def main():
         for seq in tqdm(sequences, desc=f"Processing fold {datafold}"):
             phi = kernel._get_phi(seq)
             Kx = np.zeros(K.shape[0])
-            for j, phi_tr in enumerate(kernel.phis):
-                Kx[j] = kernel.dot(phi, phi_tr) / np.sqrt(
-                    kernel.dot(phi_tr, phi_tr) * kernel.dot(phi, phi)
-                )
+            if not ensemble:
+                for j, phi_tr in enumerate(kernel.phis):
+                    Kx[j] = kernel.dot(phi, phi_tr) / np.sqrt(
+                        kernel.dot(phi_tr, phi_tr) * kernel.dot(phi, phi)
+                    )
+            else:
+                for weight, phis in kernel.phis.items():
+                    for j, phi_tr in enumerate(phis):
+                        Kx[j] += weight * kernel.dot(phi[weight], phi_tr) / np.sqrt(
+                            kernel.dot(phi_tr, phi_tr) * kernel.dot(phi[weight], phi[weight])
+                        )
             pred = (
                 np.dot(fitter.alpha * fitter.sv_label, Kx[fitter.sv_indices])
                 + fitter.intercept

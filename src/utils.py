@@ -50,12 +50,24 @@ def get_obj(dataset, kernel_params, fitter_params, verbose):
     else:
         NotImplementedError("Kernel not implemented")
     fitter = get_fitter(fitter_params)
-    return kernel, fitter
+    return fitter, kernel
 
 def get_obj_ensemble(dataset, kernel_configs, fitter_params, verbose):
     kernel = WeightedSumKernel(dataset, kernel_configs, verbose=verbose)
     fitter = get_fitter(fitter_params)
-    return kernel, fitter
+    return fitter, kernel
+
+def load_experiments(experiments_dir):
+    existing_experiments = []
+    if os.path.exists(experiments_dir):
+        for filename in os.listdir(experiments_dir):
+            if filename.endswith(".json"):
+                with open(
+                    os.path.join(experiments_dir, filename), "r"
+                ) as f:
+                    exp = json.load(f)
+                existing_experiments.append(exp)
+    return existing_experiments
 
 
 if __name__ == "__main__":
@@ -65,3 +77,4 @@ if __name__ == "__main__":
     fitter_params = {'name': 'svm', 'C': 1, 'tol': 1e-4}
     verbose = True
     kernel, fitter = get_obj(dataset, kernel_params, fitter_params, verbose)
+
