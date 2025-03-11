@@ -102,14 +102,14 @@ class KmersKernels(Kernel):
         super().__init__(verbose=verbose)
         self.dataset = dataset
         self.n = len(self.dataset)
-        self.params = {}  # Default params to be overridden by subclasses
+        self.params = {}
         self.params.update(params)
 
     @staticmethod
     def dot(phi1, phi2):
         if len(phi1) > len(
             phi2
-        ):  # Optimize by using the smaller dictionary for iteration
+        ):
             phi1, phi2 = phi2, phi1
 
         dotprod = 0
@@ -132,7 +132,6 @@ class KmersKernels(Kernel):
 
         filename = self._get_cache_filename()
 
-        # Check if the file exists
         if os.path.exists(filename):
             if self.verbose:
                 print(f"Loading Gram matrix from file: {filename}")
@@ -164,7 +163,7 @@ class KmersKernels(Kernel):
 
 class MultiSpectrumKernel(KmersKernels):
     def __init__(self, dataset, verbose=False, **params):
-        self.params = {"kmin": 7, "kmax": 20}  # Default params
+        self.params = {"kmin": 7, "kmax": 20} 
         super().__init__(dataset, verbose=verbose, **params)
         if self.verbose:
             print(f"MultiSpectrumKernel params: {self.params}")
@@ -180,12 +179,13 @@ class MultiSpectrumKernel(KmersKernels):
         return phi
 
     def _get_cache_filename(self):
+        os.makedirs(Config.kernel_dir, exist_ok=True)
         return f"{Config.kernel_dir}/multispectrumkernel_{self.dataset.k}_{self.params['kmin']}_{self.params['kmax']}.pkl"
 
 
 class MismatchKernel(KmersKernels):
     def __init__(self, dataset, verbose=False, **params):
-        self.params = {"k": 7, "m": 1}  # Default params
+        self.params = {"k": 7, "m": 1} 
         super().__init__(dataset, verbose=verbose, **params)
         if self.verbose:
             print(f"MismatchKernel params: {self.params}")
@@ -264,7 +264,7 @@ class MismatchKernel(KmersKernels):
                 print(f"Loading Gram matrix from file: {filename}")
             with open(filename, "rb") as file:
                 self.K = pickle.load(file)
-                self.phis = self._get_phis()  # Still need phis to fit with pipeline
+                self.phis = self._get_phis()
             return self.K
         
         self.phis = self._get_phis()
@@ -285,6 +285,7 @@ class MismatchKernel(KmersKernels):
         return self.K
 
     def _get_cache_filename(self):
+        os.makedirs(Config.kernel_dir, exist_ok=True)
         return (
             f"{Config.kernel_dir}/mismatchkernel_{self.dataset.k}_{self.params['k']}_{self.params['m']}.pkl"
         )
