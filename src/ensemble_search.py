@@ -1,5 +1,3 @@
-import json
-import os
 import numpy as np
 from collections import defaultdict
 
@@ -7,7 +5,7 @@ from src.dataset import Dataset
 from src.kernel import WeightedSumKernel
 from src.fitter import SVM
 from src.crossvalid import CrossValid
-from src.utils import write_results
+from src.utils import write_results, load_experiments
 
 class EnsembleSearch:
     def __init__(self, datasets, top_n=10, ensemble_weights=None):
@@ -15,26 +13,11 @@ class EnsembleSearch:
         self.top_n = top_n
         self.ensemble_weights = ensemble_weights
         self.best_configs = {}
-        
-    def _load_experiments(self):
-        experiments = []
-        experiments_dir = "experiments"
-        
-        for filename in os.listdir(experiments_dir):
-            if filename.endswith(".json"):
-                try:
-                    with open(os.path.join(experiments_dir, filename), "r") as f:
-                        experiment = json.load(f)
-                        experiments.append(experiment)
-                except Exception as e:
-                    print(f"Error loading {filename}: {str(e)}")
-        
-        return experiments
     
     def find_best_params(self):
         print("Finding best parameter configurations for each dataset...")
         
-        experiments = self._load_experiments()
+        experiments = load_experiments("experiments2")
         
         dataset_experiments = defaultdict(list)
         for exp in experiments:
@@ -55,6 +38,7 @@ class EnsembleSearch:
         return self.best_configs
     
     def _normalize_weights(self, configs):
+        print(configs)
         if self.ensemble_weights and len(self.ensemble_weights) == len(configs):
             total_weight = sum(self.ensemble_weights)
             for i, config in enumerate(configs):
@@ -101,7 +85,7 @@ class EnsembleSearch:
             best_individual = self.best_configs[dataset_idx][0]["results"]
             improvement = cv_acc - best_individual
 
-            if improvement > 0:
+            if improvement > -100:
                 write_results(dataset, fitter, kernel, cv_acc, output_folder="ensemble_experiments", weight=True)
             
             print(f"Dataset {dataset_idx} results:")
@@ -114,5 +98,5 @@ class EnsembleSearch:
 
 if __name__ == "__main__":
     datasets = [0, 1, 2]
-    ensemble = EnsembleSearch(datasets, top_n=10)
-    results = ensemble.run_search(cv_k=5, verbose=False)
+    ensemble = EnsembleSearch(datasets, top_n=5)
+    results = ensemble.run_search(cv_k=5, verbose=True)

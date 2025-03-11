@@ -5,6 +5,8 @@ from tqdm import tqdm
 import pickle
 from scipy import sparse
 
+from src.config import Config
+
 
 class Kernel:
     def __init__(self, verbose=False):
@@ -42,6 +44,7 @@ class WeightedSumKernel(Kernel):
         self.n = len(self.dataset)
         self.kernel_params_list = kernel_params_list
         self.phis = {}
+        self.kernels = []
         self.compute_gram_matrix()
 
     def compute_gram_matrix(self):
@@ -53,6 +56,7 @@ class WeightedSumKernel(Kernel):
                     kernel_params["weight"]
                     * kernel.K
                 )
+                self.kernels.append(kernel)
                 self.phis[kernel_params["weight"]] = kernel.phis
             elif kernel_params["name"] == "mismatch":
                 kernel = MismatchKernel(self.dataset, **kernel_params, verbose=self.verbose)
@@ -60,18 +64,17 @@ class WeightedSumKernel(Kernel):
                     kernel_params["weight"]
                     * kernel.K
                 )
+                self.kernels.append(kernel)
                 self.phis[kernel_params["weight"]] = kernel.phis
         return self.K
 
     def _get_phi(self, seq):
         phi = {}
-        for kernel_params in self.kernel_params_list:
+        for i, kernel_params in enumerate(self.kernel_params_list):
             if kernel_params["name"] == "spectrum":
-                kernel = MultiSpectrumKernel(self.dataset, **kernel_params, verbose=self.verbose)
-                phi[kernel_params["weight"]] = kernel._get_phi(seq)
+                phi[kernel_params["weight"]] = self.kernels[i]._get_phi(seq)
             elif kernel_params["name"] == "mismatch":
-                kernel = MismatchKernel(self.dataset, **kernel_params, verbose=self.verbose)
-                phi[kernel_params["weight"]] = kernel._get_phi(seq)
+                phi[kernel_params["weight"]] = self.kernels[i]._get_phi(seq)
         return phi
         
     
@@ -143,7 +146,7 @@ class KmersKernels(Kernel):
                 for j in range(i, self.n):
                     K[i, j] = K[j, i] = self.dot(self.phis[i], self.phis[j])
 
-            self.K = K
+            self.K = self.normalize(K)
             # Save the computed Gram matrix to a file
             with open(filename, "wb") as file:
                 pickle.dump(self.K, file)
@@ -177,7 +180,7 @@ class MultiSpectrumKernel(KmersKernels):
         return phi
 
     def _get_cache_filename(self):
-        return f"/Data/kmprotdata/multispectrumkernel_{self.dataset.k}_{self.params['kmin']}_{self.params['kmax']}.pkl"
+        return f"{Config.kernel_dir}/multispectrumkernel_{self.dataset.k}_{self.params['kmin']}_{self.params['kmax']}.pkl"
 
 
 class MismatchKernel(KmersKernels):
@@ -274,6 +277,7 @@ class MismatchKernel(KmersKernels):
         
         X_sm = sparse.coo_matrix((data, (row, col)))
         self.K = (X_sm.T @ X_sm).toarray()
+        self.K = self.normalize(self.K)
         
         with open(filename, "wb") as file:
             pickle.dump(self.K, file)
@@ -282,7 +286,7 @@ class MismatchKernel(KmersKernels):
 
     def _get_cache_filename(self):
         return (
-            f"/Data/kmprotdata/mismatchkernel_{self.dataset.k}_{self.params['k']}_{self.params['m']}.pkl"
+            f"{Config.kernel_dir}/mismatchkernel_{self.dataset.k}_{self.params['k']}_{self.params['m']}.pkl"
         )
 
 

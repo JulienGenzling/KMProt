@@ -3,9 +3,15 @@ import json
 
 from src.kernel import *
 from src.fitter import *
+from src.config import Config
 
 
-def write_results(dataset, fitter, kernel, acc, output_folder="experiments", weight=False):
+def write_results(dataset, fitter, kernel, acc, weight=False):
+    if weight:
+        output_folder = Config.ensemble_experiments_dir
+    else:
+        output_folder = Config.experiments_dir
+        
     os.makedirs(output_folder, exist_ok=True)
 
     existing_files = [

@@ -60,9 +60,8 @@ class WeightedKRR(Fitter):
         
         return self.alpha
 
-    def predict(self, K, norms_tr, norms_ts):
-        K_norm = K / np.outer(norms_tr, norms_ts)
-        y_pred = np.dot(K_norm.T, self.alpha) + self.intercept
+    def predict(self, K):
+        y_pred = np.dot(K.T, self.alpha) + self.intercept
         return np.sign(y_pred)
 
 
@@ -88,8 +87,8 @@ class KRR(Fitter):
         self.intercept = self.weighted_krr.intercept
         return self.alpha
 
-    def predict(self, K, norms_tr, norms_ts):
-        return self.weighted_krr.predict(K, norms_tr, norms_ts)
+    def predict(self, K):
+        return self.weighted_krr.predict(K)
 
 
 def sigmoid(x):
@@ -147,9 +146,8 @@ class KLR(Fitter):
         
         return self.alpha
 
-    def predict(self, K, norms_tr, norms_ts):
-        K_norm = K / np.outer(norms_tr, norms_ts)
-        raw_pred = K_norm.T @ self.alpha + self.intercept
+    def predict(self, K):
+        raw_pred = K.T @ self.alpha + self.intercept
         probs = sigmoid(raw_pred)
         return np.where(probs > 0.5, 1, -1)
 
@@ -196,8 +194,7 @@ class SVM(Fitter):
         self.intercept = intercept
         self.sv_indices = sv_indices
 
-    def predict(self, K, norms_tr, norms_ts):
-        K_norm = K / np.outer(norms_tr, norms_ts)
+    def predict(self, K_norm):
         y_pred = (
             np.dot(K_norm[self.sv_indices, :].T, self.alpha * self.sv_label)
             + self.intercept

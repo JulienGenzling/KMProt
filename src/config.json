@@ -1,11 +1,38 @@
 {
-    "ensemble": "False", 
+    "ensemble": "True", 
     "0": {
-        "kernel_params": {
-            "name": "spectrum",
-            "kmin": 5,
-            "kmax": 9
-        },
+        "kernel_configs": [
+            {
+                "name": "mismatch",
+                "k": 10,
+                "m": 2,
+                "weight": 0.20050039490049848
+            },
+            {
+                "name": "spectrum",
+                "kmin": 5,
+                "kmax": 9,
+                "weight": 0.20009979484428705
+            },
+            {
+                "name": "spectrum",
+                "kmin": 5,
+                "kmax": 17,
+                "weight": 0.199999769955171
+            },
+            {
+                "name": "spectrum",
+                "kmin": 5,
+                "kmax": 15,
+                "weight": 0.19979987015177586
+            },
+            {
+                "name": "spectrum",
+                "kmin": 5,
+                "kmax": 16,
+                "weight": 0.19960017014826753
+            }
+        ],
         "fitter_params": {
             "name": "svm",
             "C": 1,
@@ -13,11 +40,38 @@
         }
     },
     "1": {
-        "kernel_params": {
-            "name": "mismatch",
-            "k": 10,
-            "m": 1
-        },
+        "kernel_configs": [
+            {
+                "name": "spectrum",
+                "kmin": 6,
+                "kmax": 18,
+                "weight": 0.20138355759186483
+            },
+            {
+                "name": "mismatch",
+                "k": 10,
+                "m": 1,
+                "weight": 0.19977891625455715
+            },
+            {
+                "name": "spectrum",
+                "kmin": 8,
+                "kmax": 13,
+                "weight": 0.19967905176463283
+            },
+            {
+                "name": "spectrum",
+                "kmin": 7,
+                "kmax": 15,
+                "weight": 0.19957923719447254
+            },
+            {
+                "name": "spectrum",
+                "kmin": 7,
+                "kmax": 20,
+                "weight": 0.19957923719447254
+            }
+        ],
         "fitter_params": {
             "name": "svm",
             "C": 1,
@@ -25,11 +79,38 @@
         }
     },
     "2": {
-        "kernel_params": {
-            "name": "spectrum",
-            "kmin": 9,
-            "kmax": 19
-        },
+        "kernel_configs": [
+            {
+                "name": "spectrum",
+                "kmin": 10,
+                "kmax": 15,
+                "weight": 0.200400229896506
+            },
+            {
+                "name": "spectrum",
+                "kmin": 10,
+                "kmax": 14,
+                "weight": 0.2001999298333327
+            },
+            {
+                "name": "spectrum",
+                "kmin": 11,
+                "kmax": 16,
+                "weight": 0.19989985505093355
+            },
+            {
+                "name": "spectrum",
+                "kmin": 12,
+                "kmax": 16,
+                "weight": 0.19979993010672592
+            },
+            {
+                "name": "spectrum",
+                "kmin": 11,
+                "kmax": 14,
+                "weight": 0.19970005511250183
+            }
+        ],
         "fitter_params": {
             "name": "svm",
             "C": 1,

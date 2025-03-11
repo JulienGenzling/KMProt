@@ -1,5 +1,3 @@
-import os
-import json
 import itertools
 import time
 import logging
@@ -11,6 +9,7 @@ from tqdm import tqdm
 from src.dataset import Dataset
 from src.crossvalid import CrossValid
 from src.utils import get_obj, load_experiments
+from src.config import Config
 
 
 def _run_task(args):
@@ -39,7 +38,7 @@ def process_parameter_combination(
 
     try:
         dataset = Dataset(dataset_idx)
-        kernel, fitter = get_obj(dataset, kernel_params, fitter_params, verbose=False)
+        fitter, kernel = get_obj(dataset, kernel_params, fitter_params, verbose=False)
         cross_valid = CrossValid(fitter, dataset, kernel, k=cv_k, verbose=False)
         results, _ = cross_valid.fit()
         logger.info(
@@ -224,15 +223,13 @@ if __name__ == "__main__":
 
     # Don't use high values for (k,m) if mismatch because will exceed RAM quickly
     kernel_param_grid = {
-        "name": ["spectrum", "mismatch"],
-        "kmin": range(5, 21),
-        "kmax": range(5, 21),
-        "k": range(5, 15),
-        "m": range(1, 3),
+        "name": ["spectrum"],
+        "kmin": range(1, 20),
+        "kmax": range(1, 21),
     }
     fitter_param_grid = {
         "name": ["svm"],
-        "C": [2, 3, 4, 5],
+        "C": [1],
         "tol": [1e-4],
     }
 
@@ -240,6 +237,7 @@ if __name__ == "__main__":
         datasets,
         kernel_param_grid,
         fitter_param_grid,
+        experiments_dir=Config.experiments_dir,
     )
 
     results = search.run_search(
