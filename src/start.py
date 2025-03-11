@@ -84,7 +84,7 @@ def main():
     all_predictions_df = all_predictions_df.sort_values(by="Id")
     all_predictions_df["Bound"] = all_predictions_df["Bound"].astype(int)
     all_predictions_df["Bound"] = all_predictions_df["Bound"].map({-1: 0, 1: 1})
-    all_predictions_df.to_csv("submission.csv", index=False)
+    all_predictions_df.to_csv("Yte.csv", index=False)
 
 
 if __name__ == "__main__":
