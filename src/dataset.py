@@ -78,7 +78,6 @@ class KFold:
             yield {"train": train_dataset, "test": test_dataset}
 
 
-# Example usage
 if __name__ == "__main__":
     dataset = Dataset(k=0)
     kfold = KFold(dataset, 5)
