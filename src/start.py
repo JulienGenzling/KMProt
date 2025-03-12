@@ -24,12 +24,12 @@ def main():
         if not ensemble:
             kernel_params = config[datafold]["kernel_params"]
             fitter, kernel = get_obj(
-                dataset, kernel_params, fitter_params, verbose=True
+                dataset, kernel_params, fitter_params, verbose=True, cache=False
             )
         else:
             kernel_configs = config[datafold]["kernel_configs"]
             fitter, kernel = get_obj_ensemble(
-                dataset, kernel_configs, fitter_params, verbose=True
+                dataset, kernel_configs, fitter_params, verbose=True, cache=False
             )
 
         K = kernel[:, :]

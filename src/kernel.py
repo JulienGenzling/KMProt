@@ -13,7 +13,7 @@ class Kernel:
         self.K = None
         self.verbose = verbose
 
-    def compute_gram_matrix(self):
+    def compute_gram_matrix(self, cache):
         raise NotImplementedError("This method should be overridden by subclasses")
 
     def __getitem__(self, index):
@@ -37,7 +37,7 @@ class Kernel:
 
 
 class WeightedSumKernel(Kernel):
-    def __init__(self, dataset, kernel_params_list, verbose=False):
+    def __init__(self, dataset, kernel_params_list, verbose=False, cache=True):
         super().__init__(verbose=verbose)
         self.verbose = verbose
         self.dataset = dataset
@@ -45,13 +45,14 @@ class WeightedSumKernel(Kernel):
         self.kernel_params_list = kernel_params_list
         self.phis = {}
         self.kernels = []
-        self.compute_gram_matrix()
+        self.cache = cache
+        self.compute_gram_matrix(cache)
 
-    def compute_gram_matrix(self):
+    def compute_gram_matrix(self, cache):
         self.K = np.zeros((self.n, self.n))
         for kernel_params in self.kernel_params_list:
             if kernel_params["name"] == "spectrum":
-                kernel = MultiSpectrumKernel(self.dataset, **kernel_params, verbose=self.verbose)
+                kernel = MultiSpectrumKernel(self.dataset, **kernel_params, verbose=self.verbose, cache=cache)
                 self.K += (
                     kernel_params["weight"]
                     * kernel.K
@@ -59,7 +60,7 @@ class WeightedSumKernel(Kernel):
                 self.kernels.append(kernel)
                 self.phis[kernel_params["weight"]] = kernel.phis
             elif kernel_params["name"] == "mismatch":
-                kernel = MismatchKernel(self.dataset, **kernel_params, verbose=self.verbose)
+                kernel = MismatchKernel(self.dataset, **kernel_params, verbose=self.verbose, cache=cache)
                 self.K += (
                     kernel_params["weight"]
                     * kernel.K
@@ -127,26 +128,29 @@ class KmersKernels(Kernel):
             phis.append(phi)
         return np.array(phis)
 
-    def compute_gram_matrix(self):
+    def compute_gram_matrix(self, cache):
         self.phis = self._get_phis()
 
-        filename = self._get_cache_filename()
+        if cache:
+            filename = self._get_cache_filename()
+            if os.path.exists(filename):
+                if self.verbose:
+                    print(f"Loading Gram matrix from file: {filename}")
+                with open(filename, "rb") as file:
+                    self.K = pickle.load(file)
+                    self.phis = self._get_phis()
+                return self.K
 
-        if os.path.exists(filename):
-            if self.verbose:
-                print(f"Loading Gram matrix from file: {filename}")
-            with open(filename, "rb") as file:
-                self.K = pickle.load(file)
-        else:
-            if self.verbose:
-                print(f"Computing Gram matrix and saving to file: {filename}")
-            K = np.zeros((self.n, self.n))
-            for i in tqdm(range(self.n), desc="Gram matrix of spectral", disable=not self.verbose):
-                for j in range(i, self.n):
-                    K[i, j] = K[j, i] = self.dot(self.phis[i], self.phis[j])
+        if self.verbose:
+            print(f"Computing Gram matrix...")
+        K = np.zeros((self.n, self.n))
+        for i in tqdm(range(self.n), desc="Gram matrix of spectral", disable=not self.verbose):
+            for j in range(i, self.n):
+                K[i, j] = K[j, i] = self.dot(self.phis[i], self.phis[j])
 
-            self.K = self.normalize(K)
-            # Save the computed Gram matrix to a file
+        self.K = self.normalize(K)
+        # Save the computed Gram matrix to a file
+        if cache:
             with open(filename, "wb") as file:
                 pickle.dump(self.K, file)
 
@@ -162,13 +166,14 @@ class KmersKernels(Kernel):
 
 
 class MultiSpectrumKernel(KmersKernels):
-    def __init__(self, dataset, verbose=False, **params):
+    def __init__(self, dataset, verbose=False, cache=True, **params):
         self.params = {"kmin": 7, "kmax": 20} 
+        self.cache=cache
         super().__init__(dataset, verbose=verbose, **params)
         if self.verbose:
             print(f"MultiSpectrumKernel params: {self.params}")
 
-        self.compute_gram_matrix()
+        self.compute_gram_matrix(self.cache)
 
     def _get_phi(self, seq):
         phi = {}
@@ -184,8 +189,9 @@ class MultiSpectrumKernel(KmersKernels):
 
 
 class MismatchKernel(KmersKernels):
-    def __init__(self, dataset, verbose=False, **params):
+    def __init__(self, dataset, verbose=False, cache=True, **params):
         self.params = {"k": 7, "m": 1} 
+        self.cache = cache
         super().__init__(dataset, verbose=verbose, **params)
         if self.verbose:
             print(f"MismatchKernel params: {self.params}")
@@ -194,7 +200,7 @@ class MismatchKernel(KmersKernels):
         
         self.kmer_set, self.neighbours = self._precompute_kmer_neighbors()
         
-        self.compute_gram_matrix()
+        self.compute_gram_matrix(self.cache)
     
     def _precompute_kmer_neighbors(self):
         all_kmers = set()
@@ -256,17 +262,18 @@ class MismatchKernel(KmersKernels):
     def _get_phi(self, seq):
         return self.neighbour_phi(seq)
     
-    def compute_gram_matrix(self):
-        filename = self._get_cache_filename()
-        
-        if os.path.exists(filename):
-            if self.verbose:
-                print(f"Loading Gram matrix from file: {filename}")
-            with open(filename, "rb") as file:
-                self.K = pickle.load(file)
-                self.phis = self._get_phis()
-            return self.K
-        
+    def compute_gram_matrix(self, cache):
+        if cache:
+            filename = self._get_cache_filename()
+            
+            if os.path.exists(filename):
+                if self.verbose:
+                    print(f"Loading Gram matrix from file: {filename}")
+                with open(filename, "rb") as file:
+                    self.K = pickle.load(file)
+                    self.phis = self._get_phis()
+                return self.K
+            
         self.phis = self._get_phis()
         
         data, row, col = [], [], []
@@ -279,9 +286,9 @@ class MismatchKernel(KmersKernels):
         self.K = (X_sm.T @ X_sm).toarray()
         self.K = self.normalize(self.K)
         
-        with open(filename, "wb") as file:
-            pickle.dump(self.K, file)
-            
+        if cache:
+            with open(filename, "wb") as file:
+                pickle.dump(self.K, file)
         return self.K
 
     def _get_cache_filename(self):
