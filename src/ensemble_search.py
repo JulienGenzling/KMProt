@@ -87,7 +87,7 @@ class EnsembleSearch:
             improvement = cv_acc - best_individual
 
             if improvement > -100:
-                write_results(dataset, fitter, kernel, cv_acc, output_folder=Config.ensemble_experiments_dir, weight=True)
+                write_results(dataset, fitter, kernel, cv_acc, weight=True)
             
             print(f"Dataset {dataset_idx} results:")
             print(f"  Best individual model accuracy: {best_individual:.4f}")
