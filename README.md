@@ -11,7 +11,7 @@ If you still want to get the best submission, change `config.json` by `best_conf
 
 ## Run a gridsearch
 
-First update the paths to the folder that fill contain the saved gram matrices and experiment reports (json files) in `src/config.py`. Then update `src/gridsearch.py` file to change the ranges of the hyperparameters that you want to test. Then run : 
+First update the paths to the folder that will contain the saved gram matrices and experiment reports (json files) in `src/config.py`. Then update `src/gridsearch.py` file to change the ranges of the hyperparameters that you want to test. Then run : 
 
 ```
 python -m src.gridsearch
