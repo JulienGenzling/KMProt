@@ -38,7 +38,7 @@ def process_parameter_combination(
 
     try:
         dataset = Dataset(dataset_idx)
-        fitter, kernel = get_obj(dataset, kernel_params, fitter_params, verbose=False)
+        fitter, kernel = get_obj(dataset, kernel_params, fitter_params, verbose=False, cache=True)
         cross_valid = CrossValid(fitter, dataset, kernel, k=cv_k, verbose=False)
         results, _ = cross_valid.fit()
         logger.info(

@@ -6,6 +6,7 @@ from src.kernel import WeightedSumKernel
 from src.fitter import SVM
 from src.crossvalid import CrossValid
 from src.utils import write_results, load_experiments
+from src.config import Config
 
 class EnsembleSearch:
     def __init__(self, datasets, top_n=10, ensemble_weights=None):
@@ -17,7 +18,7 @@ class EnsembleSearch:
     def find_best_params(self):
         print("Finding best parameter configurations for each dataset...")
         
-        experiments = load_experiments("experiments2")
+        experiments = load_experiments(Config.experiments_dir)
         
         dataset_experiments = defaultdict(list)
         for exp in experiments:
@@ -69,7 +70,7 @@ class EnsembleSearch:
             configs = self._normalize_weights(self.best_configs[dataset_idx])
             
             kernel_configs = [config["kernel"] for config in configs]
-            kernel = WeightedSumKernel(dataset, kernel_configs, verbose=verbose)
+            kernel = WeightedSumKernel(dataset, kernel_configs, verbose=verbose, cache=True)
             
             fitter = SVM(C=1, tol=1e-4)
             
@@ -86,7 +87,7 @@ class EnsembleSearch:
             improvement = cv_acc - best_individual
 
             if improvement > -100:
-                write_results(dataset, fitter, kernel, cv_acc, output_folder="ensemble_experiments", weight=True)
+                write_results(dataset, fitter, kernel, cv_acc, output_folder=Config.ensemble_experiments_dir, weight=True)
             
             print(f"Dataset {dataset_idx} results:")
             print(f"  Best individual model accuracy: {best_individual:.4f}")
