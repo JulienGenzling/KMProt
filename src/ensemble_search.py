@@ -98,5 +98,5 @@ class EnsembleSearch:
 
 if __name__ == "__main__":
     datasets = [0, 1, 2]
-    ensemble = EnsembleSearch(datasets, top_n=5)
+    ensemble = EnsembleSearch(datasets, top_n=1)
     results = ensemble.run_search(cv_k=5, verbose=True)

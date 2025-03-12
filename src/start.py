@@ -1,9 +1,7 @@
 import json
-import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from src.dataset import Dataset
-from src.utils import get_obj, get_obj_ensemble
+from src.utils import get_obj, get_obj_ensemble, infer
 
 
 def load_config(file_path):
@@ -41,43 +39,7 @@ def main():
         data = data.sort_values(by="Id")
         sequences = data["seq"].values
 
-        test_phis = [kernel._get_phi(seq) for seq in sequences]
-        predictions = []
-
-        if not ensemble:
-            train_norms = np.array(
-                [np.sqrt(kernel.dot(phi_tr, phi_tr)) for phi_tr in kernel.phis]
-            )
-            for phi in tqdm(test_phis, desc=f"Predicting fold {datafold}"):
-                phi_norm = np.sqrt(kernel.dot(phi, phi))
-                dots = np.array([kernel.dot(phi, phi_tr) for phi_tr in kernel.phis])
-                Kx = dots / (train_norms * phi_norm)
-                pred = (
-                    np.dot(fitter.alpha * fitter.sv_label, Kx[fitter.sv_indices])
-                    + fitter.intercept
-                )
-                predictions.append(np.sign(pred))
-        else:
-            for phi_test in tqdm(test_phis, desc=f"Predicting fold {datafold}"):
-                Kx = np.zeros(next(iter(kernel.phis.values())).shape[0])
-                for weight, phis in kernel.phis.items():
-                    phi_test_norm = np.sqrt(
-                        kernel.dot(phi_test[weight], phi_test[weight])
-                    )
-                    phis_norms = np.array(
-                        [np.sqrt(kernel.dot(phi_tr, phi_tr)) for phi_tr in phis]
-                    )
-                    dots = np.array(
-                        [kernel.dot(phi_test[weight], phi_tr) for phi_tr in phis]
-                    )
-                    Kx += weight * dots / (phis_norms * phi_test_norm)
-
-                pred = (
-                    np.dot(fitter.alpha * fitter.sv_label, Kx[fitter.sv_indices])
-                    + fitter.intercept
-                )
-                predictions.append(np.sign(pred))
-
+        predictions = infer(kernel, fitter, sequences, ensemble, datafold)
         all_predictions.extend(list(zip(data["Id"], predictions)))
 
     all_predictions_df = pd.DataFrame(all_predictions, columns=["Id", "Bound"])

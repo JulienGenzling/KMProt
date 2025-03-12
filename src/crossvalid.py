@@ -51,14 +51,10 @@ if __name__ == "__main__":
     from src.kernel import MultiSpectrumKernel, MismatchKernel, WeightedSumKernel
     from src.fitter import SVM
 
-    all_acc = []
-    for i in range(10):
-        dataset = Dataset(k=0)
-        params = {'name': 'spectrum', 'kmin': 5, 'kmax': 9}
-        kernel = MultiSpectrumKernel(dataset, **params, verbose=True)
-        fitter = SVM(C=1, tol=1e-4)
-        cross_valid = CrossValid(fitter, dataset, kernel, k=5)
-        results, acc = cross_valid.fit()
-        print(acc)
-        all_acc.append(acc)
-    print(np.mean(all_acc), " +- ", np.std(all_acc))
+    dataset = Dataset(k=0)
+    params = {'name': 'mismatch', 'k': 10, 'm': 2}
+    kernel = MultiSpectrumKernel(dataset, **params, verbose=True)
+    fitter = SVM(C=2, tol=1e-4)
+    cross_valid = CrossValid(fitter, dataset, kernel, k=5)
+    results, acc = cross_valid.fit()
+    print(acc)
